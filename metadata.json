@@ -1,0 +1,5 @@
+{
+  "name": "MyshopMyhome - Your One-Stop Shop",
+  "description": "MyshopMyhome is a premium e-commerce platform for high-quality mobile accessories and home gadgets. Shop the best chargers, cables, and more with ease.",
+  "requestFramePermissions": ["geolocation"]
+}
