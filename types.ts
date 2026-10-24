@@ -1,4 +1,3 @@
-
 // Types for the application
 export interface Category {
   id: string;
@@ -21,6 +20,9 @@ export interface Product {
   relatedIds?: string[];
   reviewsList?: Review[];
   returnPolicy?: '7 Days' | 'No Return';
+  status?: 'published' | 'draft';
+  listingConfirmed?: boolean;
+  imageConfirmed?: boolean;
 }
 
 export interface Review {
@@ -31,6 +33,40 @@ export interface Review {
   comment: string;
   date: string;
   photo?: string;
+}
+
+export interface BuyingGuide {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  category: string;
+  readTime: string;
+  updatedAt: string;
+  sections: {
+    heading: string;
+    body: string;
+    checklist?: string[];
+  }[];
+}
+
+export interface StoreSettings {
+  businessName: string;
+  supportEmail: string;
+  supportPhone: string;
+  businessAddress: string;
+  businessHours: string;
+  shippingSummary: string;
+  deliveryTimeline: string;
+  returnPolicySummary: string;
+  refundTimeline: string;
+  cancellationPolicy: string;
+  warrantySummary: string;
+  registrationDetails: string;
+  adsenseEnabled: boolean;
+  adsenseGuideSlotId?: string;
+  adsenseFaqSlotId?: string;
+  updatedAt?: string;
 }
 
 export interface BlogPost {
@@ -66,14 +102,14 @@ export interface Order {
   userId?: string;
   customerName: string;
   customerPhone: string;
-  houseNo: string; // New
-  society: string; // New
-  landmark: string; // New
+  houseNo: string;
+  society: string;
+  landmark: string;
   village: string;
   taluka: string;
   district: string;
   pincode: string;
-  address: string; // Keep for legacy/notes
+  address: string;
   items: OrderItem[];
   totalAmount: number;
   discountAmount: number;

@@ -41,8 +41,8 @@ import {
   Camera,
   ThumbsUp,
 } from "lucide-react";
-import { Product, CartItem, Message, Order, Category } from "./types";
-import { INITIAL_PRODUCTS } from "./constants";
+import { Product, CartItem, Message, Order, Category, StoreSettings, BuyingGuide } from "./types";
+import { INITIAL_PRODUCTS, DEFAULT_STORE_SETTINGS, INITIAL_BUYING_GUIDES } from "./constants";
 import { getAssistantResponse } from "./services/geminiService";
 import {
   saveOrderToFirebase,
@@ -64,8 +64,32 @@ import {
   deleteCategoryFromFirebase,
   addReviewToProduct,
   deleteReviewFromProduct,
+  getStoreSettingsFromFirebase,
+  getBuyingGuidesFromFirebase,
+  saveBuyingGuideToFirebase,
 } from "./services/firebase";
 import type { User as FirebaseUser } from "firebase/auth";
+import {
+  isPubliclyVisibleProduct,
+  getValidDiscount,
+  getVerifiedReviewStats,
+  getProductQualityWarnings,
+  SafeProductImage,
+} from "./utils/productQuality";
+import {
+  AboutPage,
+  ContactPage,
+  ShippingDeliveryPage,
+  ReturnsRefundsPage,
+  TermsPage,
+  PrivacyPolicyPage,
+  FaqPage,
+  BuyingGuidesPage,
+  BuyingGuideDetailPage,
+  SiteFooter,
+  usePageMeta,
+} from "./components/InfoPages";
+import { AdminStoreSettingsTab } from "./components/AdminStoreSettings";
 
 const MobileAccountMenu = ({
   user,
@@ -611,6 +635,17 @@ const AppContent = () => {
   const [userOrders, setUserOrders] = useState<Order[]>([]);
   const [pendingCheckout, setPendingCheckout] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [storeSettings, setStoreSettings] = useState<StoreSettings>(
+    DEFAULT_STORE_SETTINGS,
+  );
+  const [buyingGuides, setBuyingGuides] = useState<BuyingGuide[]>(
+    INITIAL_BUYING_GUIDES,
+  );
+
+  usePageMeta(
+    "MyshopMyhome.shop — Mobile Accessories, Chargers, Audio & Smart Gadgets",
+    "Shop verified mobile chargers, fast charging cables, earbuds, neckbands, power banks, and protective cases at MyshopMyhome.shop.",
+  );
 
   const handleCancelOrder = async (order: any) => {
     if (window.confirm(`Are you sure you want to cancel order #${order.id}?`)) {
@@ -678,13 +713,33 @@ const AppContent = () => {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [fetchedOrders, fetchedProducts, fetchedCategories] =
-          await Promise.all([
-            getOrdersFromFirebase(),
-            getProductsFromFirebase(),
-            getCategoriesFromFirebase(),
-          ]);
+        const [
+          fetchedOrders,
+          fetchedProducts,
+          fetchedCategories,
+          fetchedSettings,
+          fetchedGuides,
+        ] = await Promise.all([
+          getOrdersFromFirebase(),
+          getProductsFromFirebase(),
+          getCategoriesFromFirebase(),
+          getStoreSettingsFromFirebase(),
+          getBuyingGuidesFromFirebase(),
+        ]);
         setOrders(fetchedOrders);
+
+        if (fetchedSettings) {
+          setStoreSettings((prev) => ({ ...prev, ...fetchedSettings }));
+        }
+
+        if (fetchedGuides && fetchedGuides.length > 0) {
+          setBuyingGuides(fetchedGuides);
+        } else {
+          for (const g of INITIAL_BUYING_GUIDES) {
+            await saveBuyingGuideToFirebase(g);
+          }
+          setBuyingGuides(INITIAL_BUYING_GUIDES);
+        }
 
         // Seeding logic for products
         if (fetchedProducts && fetchedProducts.length > 0) {
@@ -758,6 +813,7 @@ const AppContent = () => {
   };
 
   const filteredProducts = products.filter((p) => {
+    if (!isPubliclyVisibleProduct(p)) return false;
     const matchesSearch = p.name
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
@@ -1164,6 +1220,10 @@ const AppContent = () => {
                   adminPassword={adminPassword}
                   selectedOrder={selectedOrder}
                   setSelectedOrder={setSelectedOrder}
+                  storeSettings={storeSettings}
+                  setStoreSettings={setStoreSettings}
+                  buyingGuides={buyingGuides}
+                  setBuyingGuides={setBuyingGuides}
                 />
               ) : isWishlistOpen ? (
                 <WishlistView
@@ -1202,14 +1262,11 @@ const AppContent = () => {
                           className={`flex flex-col items-center gap-2 min-w-[64px] group transition-all ${activeCategory === cat.name ? "opacity-100" : "opacity-80 hover:opacity-100"}`}
                         >
                           <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-slate-100 overflow-hidden p-0 group-hover:scale-105 transition-transform">
-                            <img
+                            <SafeProductImage
                               src={cat.image}
                               alt={cat.name}
                               className="w-full h-full object-cover"
-                              onError={(e: any) =>
-                                (e.target.src =
-                                  "https://via.placeholder.com/64")
-                              }
+                              fallbackClassName="w-full h-full"
                             />
                           </div>
                           <span
@@ -1223,62 +1280,93 @@ const AppContent = () => {
                   </div>
 
                   {/* Product Grid */}
-                  <div className="max-w-7xl mx-auto px-2 md:px-4 pb-32">
+                  <div className="max-w-7xl mx-auto px-2 md:px-4 pb-16">
                     <div className="bg-white p-4 shadow-sm rounded-sm mb-4">
-                      <h3 className="text-xl font-bold text-slate-800 mb-4 border-b pb-4">
-                        Best of Electronics
-                      </h3>
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-4 border-b pb-4">
+                        <h3 className="text-xl font-bold text-slate-800">
+                          Best of Electronics
+                        </h3>
+                        <Link
+                          to="/buying-guides"
+                          className="text-xs font-bold text-blue-600 hover:text-orange-600 transition-colors"
+                        >
+                          Not sure what to pick? Read our Buying Guides →
+                        </Link>
+                      </div>
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                        {filteredProducts.map((p, idx) => (
-                          <div
-                            key={p.id}
-                            onClick={() => navigate(`/product/${p.id}`)}
-                            className="group relative bg-white hover:shadow-xl transition-shadow duration-300 p-4 border border-transparent hover:border-slate-100 rounded-sm cursor-pointer flex flex-col items-center text-center"
-                          >
-                            {/* Wishlist Heart */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleWishlist(p.id);
-                              }}
-                              className="absolute top-2 right-2 z-10 p-1.5 text-slate-300 hover:text-[#ff4343] transition-colors"
+                        {filteredProducts.map((p) => {
+                          const reviewStats = getVerifiedReviewStats(p);
+                          const discountInfo = getValidDiscount(
+                            p.price,
+                            p.oldPrice,
+                          );
+                          return (
+                            <div
+                              key={p.id}
+                              onClick={() => navigate(`/product/${p.id}`)}
+                              className="group relative bg-white hover:shadow-xl transition-shadow duration-300 p-4 border border-transparent hover:border-slate-100 rounded-sm cursor-pointer flex flex-col items-center text-center"
                             >
-                              <Heart
-                                size={18}
-                                className={
-                                  wishlist.includes(p.id)
-                                    ? "fill-[#ff4343] text-[#ff4343]"
-                                    : ""
-                                }
-                              />
-                            </button>
+                              {/* Wishlist Heart */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleWishlist(p.id);
+                                }}
+                                className="absolute top-2 right-2 z-10 p-1.5 text-slate-300 hover:text-[#ff4343] transition-colors"
+                              >
+                                <Heart
+                                  size={18}
+                                  className={
+                                    wishlist.includes(p.id)
+                                      ? "fill-[#ff4343] text-[#ff4343]"
+                                      : ""
+                                  }
+                                />
+                              </button>
 
-                            <div className="h-32 md:h-40 w-full mb-4 flex items-center justify-center relative">
-                              <img
-                                src={p.image}
-                                className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
-                              />
-                            </div>
-
-                            <h3 className="font-medium text-slate-900 text-sm mb-1 line-clamp-2 hover:text-[#2874f0]">
-                              {p.name}
-                            </h3>
-
-                            <div className="mt-auto pt-2 w-full">
-                              <div className="flex items-center justify-center gap-2 mb-1">
-                                <span className="bg-[#388e3c] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] flex items-center gap-0.5">
-                                  {p.rating} <Star size={8} fill="white" />
-                                </span>
-                                <span className="text-slate-400 text-xs">
-                                  ({p.reviews})
-                                </span>
+                              <div className="h-32 md:h-40 w-full mb-4 flex items-center justify-center relative">
+                                <SafeProductImage
+                                  src={p.image}
+                                  alt={p.name}
+                                  className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                                  fallbackClassName="w-full h-full rounded-lg"
+                                />
                               </div>
 
-                              <div className="flex items-center justify-center gap-2 mb-3">
-                                <span className="text-base font-bold text-slate-900">
-                                  ₹{p.price}
-                                </span>
-                                <div className="mt-1">
+                              <h3 className="font-medium text-slate-900 text-sm mb-1 line-clamp-2 hover:text-[#2874f0]">
+                                {p.name}
+                              </h3>
+
+                              <div className="mt-auto pt-2 w-full">
+                                {reviewStats.hasVerifiedReviews && (
+                                  <div className="flex items-center justify-center gap-2 mb-1">
+                                    <span className="bg-[#388e3c] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] flex items-center gap-0.5">
+                                      {reviewStats.rating}{" "}
+                                      <Star size={8} fill="white" />
+                                    </span>
+                                    <span className="text-slate-400 text-xs">
+                                      ({reviewStats.count})
+                                    </span>
+                                  </div>
+                                )}
+
+                                <div className="flex flex-wrap items-center justify-center gap-1.5 mb-2">
+                                  <span className="text-base font-bold text-slate-900">
+                                    ₹{p.price}
+                                  </span>
+                                  {discountInfo.showDiscount && (
+                                    <>
+                                      <span className="text-xs text-slate-400 line-through">
+                                        ₹{p.oldPrice}
+                                      </span>
+                                      <span className="text-xs font-bold text-[#388e3c]">
+                                        {discountInfo.discountPercent}% off
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+
+                                <div className="mb-3">
                                   <span
                                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.returnPolicy === "No Return" ? "bg-rose-50 text-rose-600 border border-rose-100" : "bg-emerald-50 text-emerald-600 border border-emerald-100"}`}
                                   >
@@ -1287,43 +1375,25 @@ const AppContent = () => {
                                       : "7 Days Return"}
                                   </span>
                                 </div>
-                                {p.oldPrice && (
-                                  <>
-                                    <span className="text-xs text-slate-400 line-through">
-                                      ₹{p.oldPrice}
-                                    </span>
-                                    <span className="text-xs font-bold text-[#388e3c]">
-                                      {Math.round(
-                                        ((p.oldPrice - p.price) / p.oldPrice) *
-                                          100,
-                                      )}
-                                      % off
-                                    </span>
-                                  </>
-                                )}
-                              </div>
 
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  addToCart(p);
-                                }}
-                                className="w-full py-2 bg-[#ff9f00] text-white text-sm font-bold uppercase rounded-[2px] hover:shadow-md transition-shadow"
-                              >
-                                Add to Cart
-                              </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    addToCart(p);
+                                  }}
+                                  className="w-full py-2 bg-[#ff9f00] text-white text-sm font-bold uppercase rounded-[2px] hover:shadow-md transition-shadow"
+                                >
+                                  Add to Cart
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
 
                     {filteredProducts.length === 0 && (
                       <div className="text-center py-20 bg-white shadow-sm">
-                        <img
-                          src="https://rukminim1.flixcart.com/www/800/800/promos/16/05/2019/d438a32e-765a-4d8b-b4a6-520b560971e8.png?q=90"
-                          className="w-48 mx-auto mb-4 opacity-50"
-                        />
                         <p className="font-bold text-lg">No products found</p>
                         <p className="text-slate-500">
                           Try searching for something else!
@@ -1343,11 +1413,60 @@ const AppContent = () => {
                 setProducts={setProducts}
                 addToCart={addToCart}
                 setIsCartOpen={setIsCartOpen}
+                storeSettings={storeSettings}
+              />
+            }
+          />
+          <Route
+            path="/about"
+            element={<AboutPage settings={storeSettings} />}
+          />
+          <Route
+            path="/contact"
+            element={<ContactPage settings={storeSettings} />}
+          />
+          <Route
+            path="/shipping-delivery"
+            element={<ShippingDeliveryPage settings={storeSettings} />}
+          />
+          <Route
+            path="/returns-refunds"
+            element={<ReturnsRefundsPage settings={storeSettings} />}
+          />
+          <Route
+            path="/terms"
+            element={<TermsPage settings={storeSettings} />}
+          />
+          <Route
+            path="/privacy-policy"
+            element={<PrivacyPolicyPage settings={storeSettings} />}
+          />
+          <Route
+            path="/faq"
+            element={<FaqPage settings={storeSettings} />}
+          />
+          <Route
+            path="/buying-guides"
+            element={
+              <BuyingGuidesPage
+                guides={buyingGuides}
+                settings={storeSettings}
+              />
+            }
+          />
+          <Route
+            path="/buying-guides/:slug"
+            element={
+              <BuyingGuideDetailPage
+                guides={buyingGuides}
+                settings={storeSettings}
               />
             }
           />
         </Routes>
       </main>
+
+      <SiteFooter settings={storeSettings} />
 
       {/* Floating Chat Button (Desktop) */}
       <div className="hidden md:block fixed bottom-8 right-8 z-50">
@@ -1764,12 +1883,19 @@ const AdminPanel = ({
   adminPassword,
   selectedOrder,
   setSelectedOrder,
+  storeSettings,
+  setStoreSettings,
+  buyingGuides,
+  setBuyingGuides,
 }: any) => {
   const [passInput, setPassInput] = useState("");
   const [auth, setAuth] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "orders" | "products" | "categories" | "returns" | "reviews"
+    "orders" | "products" | "categories" | "returns" | "reviews" | "settings"
   >("orders");
+  const [brokenImageMap, setBrokenImageMap] = useState<Record<string, boolean>>(
+    {},
+  );
   const [selectedReviewProduct, setSelectedReviewProduct] = useState("");
   const [isAddAdminReviewOpen, setIsAddAdminReviewOpen] = useState(false);
   const [adminReviewPhoto, setAdminReviewPhoto] = useState("");
@@ -1780,11 +1906,14 @@ const AdminPanel = ({
     oldPrice: "",
     image: "",
     images: [] as string[],
-    rating: "5",
+    rating: "0",
     reviews: "0",
     description: "",
     category: "Accessories",
     returnPolicy: "7 Days",
+    status: "published" as "published" | "draft",
+    listingConfirmed: false,
+    imageConfirmed: false,
   });
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
@@ -1922,38 +2051,81 @@ const AdminPanel = ({
       return;
     }
 
+    const numericPrice = Number(newProduct.price);
+    const numericOldPrice = newProduct.oldPrice
+      ? Number(newProduct.oldPrice)
+      : undefined;
+
+    if (
+      numericOldPrice !== undefined &&
+      (!Number.isFinite(numericOldPrice) || numericOldPrice <= numericPrice)
+    ) {
+      alert(
+        "Old/Compare-at price must be greater than the current sale price, or left empty.",
+      );
+      return;
+    }
+
     setIsSaving(true);
-    const currentImages = Array.isArray(newProduct.images) ? newProduct.images : [];
-    const mainImage = newProduct.image || currentImages[0] || `https://picsum.photos/seed/${Date.now()}/300/300`;
-    const allImages = currentImages.length > 0 ? currentImages : [mainImage];
+    const currentImages = Array.isArray(newProduct.images)
+      ? newProduct.images
+      : [];
+    const mainImage = newProduct.image || currentImages[0] || "";
+    const allImages =
+      currentImages.length > 0
+        ? currentImages
+        : mainImage
+          ? [mainImage]
+          : [];
+
+    const existingReviewsList = editingProduct?.reviewsList || [];
+    const verifiedCount = existingReviewsList.length;
+    const verifiedAvg =
+      verifiedCount > 0
+        ? Number(
+            (
+              existingReviewsList.reduce(
+                (sum: number, r: any) => sum + Number(r.rating || 0),
+                0,
+              ) / verifiedCount
+            ).toFixed(1),
+          )
+        : 0;
 
     const product: Product = editingProduct
       ? {
           ...editingProduct,
-          name: newProduct.name,
-          price: Number(newProduct.price),
-          oldPrice: Number(newProduct.oldPrice) || undefined,
+          name: newProduct.name.trim(),
+          price: numericPrice,
+          oldPrice: numericOldPrice,
           image: mainImage,
           images: allImages,
-          rating: Number(newProduct.rating) || 5,
-          reviews: Number(newProduct.reviews) || 0,
+          rating: verifiedAvg,
+          reviews: verifiedCount,
           description: newProduct.description,
           category: newProduct.category as any,
           returnPolicy: newProduct.returnPolicy as any,
+          status: newProduct.status || "published",
+          listingConfirmed: Boolean(newProduct.listingConfirmed),
+          imageConfirmed: Boolean(newProduct.imageConfirmed),
         }
       : {
           id: String(Date.now()),
-          name: newProduct.name,
-          price: Number(newProduct.price),
-          oldPrice: Number(newProduct.oldPrice) || undefined,
+          name: newProduct.name.trim(),
+          price: numericPrice,
+          oldPrice: numericOldPrice,
           image: mainImage,
           images: allImages,
-          description: newProduct.description || "New Product",
+          description: newProduct.description || "",
           category: newProduct.category as any,
-          rating: Number(newProduct.rating) || 5,
-          reviews: Number(newProduct.reviews) || 0,
+          rating: 0,
+          reviews: 0,
+          reviewsList: [],
           stock: 10,
           returnPolicy: newProduct.returnPolicy as any,
+          status: newProduct.status || "published",
+          listingConfirmed: true,
+          imageConfirmed: Boolean(mainImage && mainImage.startsWith("/uploads/")),
         };
 
     try {
@@ -1972,11 +2144,14 @@ const AdminPanel = ({
         oldPrice: "",
         image: "",
         images: [],
-        rating: "5",
+        rating: "0",
         reviews: "0",
         description: "",
         category: "Accessories",
         returnPolicy: "7 Days",
+        status: "published",
+        listingConfirmed: false,
+        imageConfirmed: false,
       });
       setIsAddProductOpen(false);
     } catch (error) {
@@ -1984,6 +2159,26 @@ const AdminPanel = ({
       alert("Product save failed. Please check your internet connection.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleQuickProductUpdate = async (
+    productId: string,
+    updates: Partial<Product>,
+  ) => {
+    const target = products.find((p: Product) => p.id === productId);
+    if (!target) return;
+    const updatedProduct: Product = { ...target, ...updates };
+    try {
+      await saveProductToFirebase(updatedProduct);
+      setProducts(
+        products.map((p: Product) =>
+          p.id === productId ? updatedProduct : p,
+        ),
+      );
+    } catch (error) {
+      console.error("Error updating product:", error);
+      alert("Failed to update product");
     }
   };
 
@@ -2043,6 +2238,7 @@ const AdminPanel = ({
           ...prev,
           image: primaryImage,
           images: mergedImages,
+          imageConfirmed: true,
         }));
       }
     } catch (error: any) {
@@ -2082,11 +2278,14 @@ const AdminPanel = ({
       oldPrice: p.oldPrice ? String(p.oldPrice) : "",
       image: p.image || existingImages[0] || "",
       images: existingImages,
-      rating: String(p.rating),
-      reviews: String(p.reviews),
+      rating: String(p.rating || 0),
+      reviews: String(p.reviews || 0),
       description: p.description,
       category: p.category,
       returnPolicy: p.returnPolicy || "7 Days",
+      status: p.status || "published",
+      listingConfirmed: Boolean(p.listingConfirmed),
+      imageConfirmed: Boolean(p.imageConfirmed),
     });
     setIsAddProductOpen(true);
   };
@@ -2151,41 +2350,47 @@ const AdminPanel = ({
         />
       )}
 
-      <div className="flex justify-between items-center mb-10">
-        <div className="flex items-center gap-6">
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-10">
+        <div className="flex flex-wrap items-center gap-6">
           <h2 className="text-3xl font-black tracking-tight flex items-center gap-3">
             <ShieldCheck className="text-orange-600" /> Admin Panel
           </h2>
-          <div className="flex bg-slate-100 p-1 rounded-xl">
+          <div className="flex flex-wrap bg-slate-100 p-1 rounded-xl gap-1">
             <button
               onClick={() => setActiveTab("orders")}
-              className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "orders" ? "bg-white shadow-sm text-orange-600" : "text-slate-500 hover:text-slate-900"}`}
+              className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "orders" ? "bg-white shadow-sm text-orange-600" : "text-slate-500 hover:text-slate-900"}`}
             >
               Orders
             </button>
             <button
               onClick={() => setActiveTab("products")}
-              className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "products" ? "bg-white shadow-sm text-orange-600" : "text-slate-500 hover:text-slate-900"}`}
+              className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "products" ? "bg-white shadow-sm text-orange-600" : "text-slate-500 hover:text-slate-900"}`}
             >
               Products
             </button>
             <button
               onClick={() => setActiveTab("categories")}
-              className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "categories" ? "bg-white shadow-sm text-orange-600" : "text-slate-500 hover:text-slate-900"}`}
+              className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "categories" ? "bg-white shadow-sm text-orange-600" : "text-slate-500 hover:text-slate-900"}`}
             >
               Categories
             </button>
             <button
               onClick={() => setActiveTab("returns")}
-              className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "returns" ? "bg-white shadow-sm text-orange-600" : "text-slate-500 hover:text-slate-900"}`}
+              className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "returns" ? "bg-white shadow-sm text-orange-600" : "text-slate-500 hover:text-slate-900"}`}
             >
               Returns
             </button>
             <button
               onClick={() => setActiveTab("reviews")}
-              className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "reviews" ? "bg-white shadow-sm text-orange-600" : "text-slate-500 hover:text-slate-900"}`}
+              className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "reviews" ? "bg-white shadow-sm text-orange-600" : "text-slate-500 hover:text-slate-900"}`}
             >
               Reviews
+            </button>
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "settings" ? "bg-white shadow-sm text-orange-600" : "text-slate-500 hover:text-slate-900"}`}
+            >
+              Store & Guides
             </button>
           </div>
         </div>
@@ -2872,13 +3077,27 @@ const AdminPanel = ({
             </div>
           </div>
         </div>
+      ) : activeTab === "settings" ? (
+        <AdminStoreSettingsTab
+          settings={storeSettings}
+          setSettings={setStoreSettings}
+          guides={buyingGuides}
+          setGuides={setBuyingGuides}
+        />
       ) : (
         <div className="space-y-8">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-bold text-slate-900">
-              Product Catalog
-            </h3>
-            <div className="flex gap-4">
+          <div className="flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">
+                Product Catalog & Quality Review
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Unconfirmed placeholder listings (like &ldquo;fgh&rdquo;) and
+                draft products are kept hidden from the public catalog until you
+                confirm and publish them.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
               <button
                 onClick={async () => {
                   if (
@@ -2907,7 +3126,7 @@ const AdminPanel = ({
                     }
                   }
                 }}
-                className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all active:scale-95 flex items-center gap-2"
+                className="px-5 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all active:scale-95 flex items-center gap-2 text-sm"
               >
                 <ShieldCheck size={18} /> Apply 7D Return to All
               </button>
@@ -2917,21 +3136,54 @@ const AdminPanel = ({
                   setNewProduct({
                     name: "",
                     price: "",
+                    oldPrice: "",
                     image: "",
-                    rating: "5",
+                    images: [],
+                    rating: "0",
                     reviews: "0",
                     description: "",
                     category: "Accessories",
                     returnPolicy: "7 Days",
+                    status: "published",
+                    listingConfirmed: true,
+                    imageConfirmed: false,
                   });
                   setIsAddProductOpen(true);
                 }}
-                className="px-6 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 transition-all active:scale-95 flex items-center gap-2"
+                className="px-5 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 transition-all active:scale-95 flex items-center gap-2 text-sm"
               >
                 <Plus size={18} /> Add Product
               </button>
             </div>
           </div>
+
+          {/* Quality Audit Summary Banner */}
+          {(() => {
+            const flaggedProducts = products.filter(
+              (p: Product) =>
+                getProductQualityWarnings(p, Boolean(brokenImageMap[p.id]))
+                  .length > 0,
+            );
+            if (flaggedProducts.length === 0) return null;
+            return (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <h4 className="font-bold text-amber-900 text-sm">
+                    Catalog Quality Review: {flaggedProducts.length} listing(s)
+                    flagged for admin attention
+                  </h4>
+                  <span className="text-xs font-bold bg-amber-200/70 text-amber-900 px-2.5 py-0.5 rounded-full">
+                    No data was auto-deleted
+                  </span>
+                </div>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Review flagged items below to replace broken or mismatched
+                  images via the uploader, fix compare-at prices, or confirm test
+                  listings like &ldquo;fgh&rdquo;.
+                </p>
+              </div>
+            );
+          })()}
 
           {isAddProductOpen && (
             <div className="bg-slate-50 p-8 rounded-[2rem] border border-orange-100 animate-in slide-in-from-top-4 fade-in">
@@ -2942,7 +3194,7 @@ const AdminPanel = ({
                 onSubmit={handleSaveProduct}
                 className="grid grid-cols-1 md:grid-cols-4 gap-6"
               >
-                <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-3 gap-6">
                   <input
                     placeholder="Product Name"
                     value={newProduct.name}
@@ -2965,65 +3217,76 @@ const AdminPanel = ({
                       </option>
                     ))}
                   </select>
+                  <select
+                    value={newProduct.status || "published"}
+                    onChange={(e) =>
+                      setNewProduct({
+                        ...newProduct,
+                        status: e.target.value as "published" | "draft",
+                      })
+                    }
+                    className="p-4 bg-white rounded-xl border-none shadow-sm outline-none focus:ring-2 focus:ring-orange-600 font-bold"
+                  >
+                    <option value="published">
+                      Status: Published (Public)
+                    </option>
+                    <option value="draft">
+                      Status: Draft (Hidden from Store)
+                    </option>
+                  </select>
                 </div>
 
-                <input
-                  type="number"
-                  placeholder="Price (₹)"
-                  value={newProduct.price}
-                  onChange={(e) =>
-                    setNewProduct({ ...newProduct, price: e.target.value })
-                  }
-                  className="p-4 bg-white rounded-xl border-none shadow-sm outline-none focus:ring-2 focus:ring-orange-600 font-bold"
-                  required
-                />
-                <input
-                  type="number"
-                  placeholder="Old Price (₹)"
-                  value={newProduct.oldPrice}
-                  onChange={(e) =>
-                    setNewProduct({ ...newProduct, oldPrice: e.target.value })
-                  }
-                  className="p-4 bg-white rounded-xl border-none shadow-sm outline-none focus:ring-2 focus:ring-orange-600 font-bold"
-                />
-
-                <div className="relative">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-2">
+                    Sale Price (₹)
+                  </label>
                   <input
                     type="number"
-                    placeholder="Rating (1-5)"
-                    min="1"
-                    max="5"
-                    step="0.1"
-                    value={newProduct.rating}
+                    placeholder="Price (₹)"
+                    value={newProduct.price}
                     onChange={(e) =>
-                      setNewProduct({ ...newProduct, rating: e.target.value })
+                      setNewProduct({ ...newProduct, price: e.target.value })
                     }
-                    className="w-full p-4 bg-white rounded-xl border-none shadow-sm outline-none focus:ring-2 focus:ring-orange-600 font-bold pl-10"
+                    className="w-full p-4 bg-white rounded-xl border-none shadow-sm outline-none focus:ring-2 focus:ring-orange-600 font-bold"
                     required
-                  />
-                  <Star
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500"
-                    size={18}
-                    fill="currentColor"
                   />
                 </div>
-
-                <div className="relative">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-2">
+                    Compare-at / Old Price (₹, optional)
+                  </label>
                   <input
                     type="number"
-                    placeholder="Reviews Count"
-                    min="0"
-                    value={newProduct.reviews}
+                    placeholder="Old Price (₹)"
+                    value={newProduct.oldPrice}
                     onChange={(e) =>
-                      setNewProduct({ ...newProduct, reviews: e.target.value })
+                      setNewProduct({ ...newProduct, oldPrice: e.target.value })
                     }
-                    className="w-full p-4 bg-white rounded-xl border-none shadow-sm outline-none focus:ring-2 focus:ring-orange-600 font-bold pl-10"
-                    required
+                    className="w-full p-4 bg-white rounded-xl border-none shadow-sm outline-none focus:ring-2 focus:ring-orange-600 font-bold"
                   />
-                  <MessageSquare
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    size={18}
-                  />
+                  {newProduct.oldPrice &&
+                    Number(newProduct.oldPrice) <= Number(newProduct.price) && (
+                      <p className="text-[11px] font-bold text-rose-600 mt-1 ml-1">
+                        Old price must be greater than ₹{newProduct.price || 0}{" "}
+                        to show a valid discount.
+                      </p>
+                    )}
+                </div>
+
+                <div className="md:col-span-2 bg-white p-4 rounded-xl shadow-sm flex flex-col justify-center">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Verified Customer Ratings
+                  </span>
+                  <p className="text-xs font-medium text-slate-600 mt-1">
+                    Star ratings and review counts are calculated automatically
+                    from verified customer reviews (
+                    {editingProduct?.reviewsList?.length || 0} verified review
+                    {(editingProduct?.reviewsList?.length || 0) === 1
+                      ? ""
+                      : "s"}
+                    ). Products with 0 verified reviews do not display a rating
+                    badge.
+                  </p>
                 </div>
 
                 <div className="md:col-span-2">
@@ -3039,53 +3302,72 @@ const AdminPanel = ({
                       disabled={isSaving}
                       className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 disabled:opacity-50"
                     />
-                    
-                    {Array.isArray(newProduct.images) && newProduct.images.length > 0 && (
-                      <div className="grid grid-cols-4 gap-3 bg-white p-4 rounded-2xl border">
-                        {newProduct.images.map((imgUrl: string, idx: number) => {
-                          const isMain = newProduct.image === imgUrl;
-                          return (
-                            <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border bg-slate-50 flex items-center justify-center">
-                              <img src={imgUrl} className="w-full h-full object-cover" />
-                              {isMain && (
-                                <span className="absolute top-1 left-1 bg-orange-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
-                                  Main
-                                </span>
-                              )}
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1">
-                                {!isMain && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setNewProduct({ ...newProduct, image: imgUrl })}
-                                    className="bg-white text-slate-900 text-[10px] font-bold px-2 py-0.5 rounded shadow hover:bg-orange-600 hover:text-white transition-colors"
-                                  >
-                                    Set Main
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const updatedImages = newProduct.images.filter((_, i) => i !== idx);
-                                    let newMain = newProduct.image;
-                                    if (isMain) {
-                                      newMain = updatedImages[0] || "";
-                                    }
-                                    setNewProduct({
-                                      ...newProduct,
-                                      image: newMain,
-                                      images: updatedImages,
-                                    });
-                                  }}
-                                  className="bg-rose-500 text-white text-[10px] font-bold p-1 rounded shadow hover:bg-rose-600 transition-colors"
+
+                    {Array.isArray(newProduct.images) &&
+                      newProduct.images.length > 0 && (
+                        <div className="grid grid-cols-4 gap-3 bg-white p-4 rounded-2xl border">
+                          {newProduct.images.map(
+                            (imgUrl: string, idx: number) => {
+                              const isMain = newProduct.image === imgUrl;
+                              return (
+                                <div
+                                  key={idx}
+                                  className="relative group aspect-square rounded-xl overflow-hidden border bg-slate-50 flex items-center justify-center"
                                 >
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                                  <SafeProductImage
+                                    src={imgUrl}
+                                    alt={`Preview ${idx + 1}`}
+                                    className="w-full h-full object-cover"
+                                    fallbackClassName="w-full h-full"
+                                  />
+                                  {isMain && (
+                                    <span className="absolute top-1 left-1 bg-orange-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+                                      Main
+                                    </span>
+                                  )}
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1">
+                                    {!isMain && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setNewProduct({
+                                            ...newProduct,
+                                            image: imgUrl,
+                                          })
+                                        }
+                                        className="bg-white text-slate-900 text-[10px] font-bold px-2 py-0.5 rounded shadow hover:bg-orange-600 hover:text-white transition-colors"
+                                      >
+                                        Set Main
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updatedImages =
+                                          newProduct.images.filter(
+                                            (_, i) => i !== idx,
+                                          );
+                                        let newMain = newProduct.image;
+                                        if (isMain) {
+                                          newMain = updatedImages[0] || "";
+                                        }
+                                        setNewProduct({
+                                          ...newProduct,
+                                          image: newMain,
+                                          images: updatedImages,
+                                        });
+                                      }}
+                                      className="bg-rose-500 text-white text-[10px] font-bold p-1 rounded shadow hover:bg-rose-600 transition-colors"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            },
+                          )}
+                        </div>
+                      )}
                   </div>
                   <input
                     placeholder="Or Main Image URL"
@@ -3163,28 +3445,59 @@ const AdminPanel = ({
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {products.map((p: any) => {
+            {products.map((p: Product) => {
               const totalSold = orders.reduce((acc: number, order: any) => {
                 const item = order.items.find((i: any) => i.id === p.id);
                 return acc + (item ? item.quantity : 0);
               }, 0);
+              const isBroken = Boolean(brokenImageMap[p.id]);
+              const qualityWarnings = getProductQualityWarnings(p, isBroken);
+              const isPublic = isPubliclyVisibleProduct(p);
+              const verifiedStats = getVerifiedReviewStats(p);
 
               return (
                 <div
                   key={p.id}
-                  className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group relative"
+                  className={`bg-white p-4 rounded-[2rem] border shadow-sm hover:shadow-md transition-all group relative flex flex-col ${
+                    qualityWarnings.length > 0
+                      ? "border-amber-300 ring-1 ring-amber-200"
+                      : "border-slate-100"
+                  }`}
                 >
-                  <div className="aspect-square rounded-2xl bg-slate-50 mb-4 overflow-hidden relative">
-                    <img src={p.image} className="w-full h-full object-cover" />
+                  <div className="aspect-square rounded-2xl bg-slate-50 mb-3 overflow-hidden relative">
+                    <SafeProductImage
+                      src={p.image}
+                      alt={p.name}
+                      className="w-full h-full object-cover"
+                      fallbackClassName="w-full h-full"
+                      onBrokenChange={(broken) => {
+                        setBrokenImageMap((prev) =>
+                          prev[p.id] === broken
+                            ? prev
+                            : { ...prev, [p.id]: broken },
+                        );
+                      }}
+                    />
+                    <span
+                      className={`absolute top-2 left-2 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm ${
+                        isPublic
+                          ? "bg-emerald-600 text-white"
+                          : "bg-amber-600 text-white"
+                      }`}
+                    >
+                      {isPublic ? "Published" : "Hidden / Draft"}
+                    </span>
                     <button
                       onClick={() => handleDeleteProduct(p.id)}
                       className="absolute top-2 right-2 p-2 bg-white/90 text-rose-500 rounded-full shadow-sm hover:bg-rose-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                      title="Delete product"
                     >
                       <Trash2 size={16} />
                     </button>
                     <button
                       onClick={() => startEdit(p)}
                       className="absolute top-2 right-12 p-2 bg-white/90 text-orange-600 rounded-full shadow-sm hover:bg-orange-600 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                      title="Edit product / Replace image"
                     >
                       <Pencil size={16} />
                     </button>
@@ -3192,12 +3505,90 @@ const AdminPanel = ({
                       Sold: {totalSold}
                     </div>
                   </div>
+
                   <h4 className="font-bold text-slate-900 mb-1 truncate">
                     {p.name}
                   </h4>
-                  <div className="flex justify-between items-center">
-                    <p className="text-orange-600 font-black">₹{p.price}</p>
-                    <div className="mt-2 flex gap-1">
+
+                  <div className="flex justify-between items-center mb-2">
+                    <div>
+                      <span className="text-orange-600 font-black">
+                        ₹{p.price}
+                      </span>
+                      {p.oldPrice !== undefined && (
+                        <span className="text-xs text-slate-400 line-through ml-1.5">
+                          ₹{p.oldPrice}
+                        </span>
+                      )}
+                    </div>
+                    {verifiedStats.hasVerifiedReviews ? (
+                      <div className="flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">
+                        {verifiedStats.rating}{" "}
+                        <Star size={10} fill="currentColor" /> (
+                        {verifiedStats.count})
+                      </div>
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                        No verified reviews
+                      </span>
+                    )}
+                  </div>
+
+                  {qualityWarnings.length > 0 && (
+                    <div className="mb-3 space-y-1.5 bg-amber-50/90 border border-amber-200 rounded-xl p-2.5">
+                      {qualityWarnings.map((w, wIdx) => (
+                        <p
+                          key={wIdx}
+                          className="text-[11px] text-amber-900 font-semibold leading-snug"
+                        >
+                          • {w.message}
+                        </p>
+                      ))}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => startEdit(p)}
+                          className="px-2.5 py-1 bg-orange-600 text-white rounded-lg text-[10px] font-bold hover:bg-orange-700 transition-colors"
+                        >
+                          Replace Image / Edit
+                        </button>
+                        {qualityWarnings.some(
+                          (w) => w.type === "placeholder_name",
+                        ) && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleQuickProductUpdate(p.id, {
+                                listingConfirmed: true,
+                                status: "published",
+                              })
+                            }
+                            className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-bold hover:bg-emerald-700 transition-colors"
+                          >
+                            Confirm Real Product
+                          </button>
+                        )}
+                        {qualityWarnings.some(
+                          (w) => w.type === "image_mismatch",
+                        ) && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleQuickProductUpdate(p.id, {
+                                imageConfirmed: true,
+                              })
+                            }
+                            className="px-2.5 py-1 bg-slate-800 text-white rounded-lg text-[10px] font-bold hover:bg-slate-900 transition-colors"
+                          >
+                            Confirm Image Matches
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-auto pt-2 space-y-1.5">
+                    <div className="flex gap-1">
                       <button
                         onClick={() =>
                           handleUpdateProductPolicy(p.id, "7 Days")
@@ -3215,9 +3606,22 @@ const AdminPanel = ({
                         No Return
                       </button>
                     </div>
-                    <div className="flex items-center gap-1 text-xs font-bold text-amber-500 bg-amber-50 px-2 py-1 rounded-lg">
-                      {p.rating} <Star size={10} fill="currentColor" />
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleQuickProductUpdate(p.id, {
+                          status:
+                            p.status === "draft" ? "published" : "draft",
+                          listingConfirmed:
+                            p.status === "draft" ? true : p.listingConfirmed,
+                        })
+                      }
+                      className="w-full py-1.5 rounded-lg text-[10px] font-bold border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors"
+                    >
+                      {p.status === "draft" || !isPublic
+                        ? "Publish to Storefront"
+                        : "Move to Draft (Hide)"}
+                    </button>
                   </div>
                 </div>
               );
@@ -3603,6 +4007,7 @@ const ProductPage = ({
   setProducts,
   addToCart,
   setIsCartOpen,
+  storeSettings,
 }: any) => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -3692,6 +4097,8 @@ const ProductPage = ({
 
   const [selectedMainImage, setSelectedMainImage] = useState<string>("");
   const activeImg = selectedMainImage || product.image;
+  const reviewStats = getVerifiedReviewStats(product);
+  const discountInfo = getValidDiscount(product.price, product.oldPrice);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 animate-in fade-in duration-500">
@@ -3706,9 +4113,10 @@ const ProductPage = ({
         {/* Image Section */}
         <div className="w-full md:w-1/2 flex flex-col gap-4">
           <div className="aspect-square bg-white border border-slate-100 rounded-sm overflow-hidden flex items-center justify-center p-4">
-            <img
+            <SafeProductImage
               src={activeImg}
               className="max-h-full max-w-full object-contain"
+              fallbackClassName="w-full h-full rounded-lg"
               alt={product.name}
             />
           </div>
@@ -3719,10 +4127,17 @@ const ProductPage = ({
                   key={idx}
                   onClick={() => setSelectedMainImage(imgUrl)}
                   className={`w-16 h-16 rounded-lg overflow-hidden border-2 flex-shrink-0 bg-slate-50 flex items-center justify-center transition-all ${
-                    activeImg === imgUrl ? "border-orange-600 shadow-sm" : "border-slate-200 hover:border-slate-300"
+                    activeImg === imgUrl
+                      ? "border-orange-600 shadow-sm"
+                      : "border-slate-200 hover:border-slate-300"
                   }`}
                 >
-                  <img src={imgUrl} className="w-full h-full object-cover" />
+                  <SafeProductImage
+                    src={imgUrl}
+                    alt={`${product.name} ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                    fallbackClassName="w-full h-full"
+                  />
                 </button>
               ))}
             </div>
@@ -3761,13 +4176,18 @@ const ProductPage = ({
             {product.name}
           </h1>
 
-          <div className="flex items-center gap-4 mb-4">
-            <div className="bg-[#388e3c] text-white text-xs font-bold px-2 py-0.5 rounded-[3px] flex items-center gap-1">
-              {product.rating} <Star size={10} fill="white" />
-            </div>
-            <span className="text-slate-500 text-sm font-bold">
-              {product.reviews} Ratings & Reviews
-            </span>
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            {reviewStats.hasVerifiedReviews && (
+              <>
+                <div className="bg-[#388e3c] text-white text-xs font-bold px-2 py-0.5 rounded-[3px] flex items-center gap-1">
+                  {reviewStats.rating} <Star size={10} fill="white" />
+                </div>
+                <span className="text-slate-500 text-sm font-bold">
+                  {reviewStats.count} Verified Review
+                  {reviewStats.count === 1 ? "" : "s"}
+                </span>
+              </>
+            )}
             <span
               className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${product.returnPolicy === "No Return" ? "bg-rose-50 text-rose-600 border border-rose-100" : "bg-emerald-50 text-emerald-600 border border-emerald-100"}`}
             >
@@ -3781,23 +4201,17 @@ const ProductPage = ({
             <span className="text-3xl font-bold text-slate-900">
               ₹{product.price}
             </span>
-            {product.oldPrice && (
+            {discountInfo.showDiscount && (
               <>
                 <span className="text-base text-slate-400 line-through">
                   ₹{product.oldPrice}
                 </span>
                 <span className="text-base font-bold text-[#388e3c]">
-                  {Math.round(
-                    ((product.oldPrice - product.price) / product.oldPrice) *
-                      100,
-                  )}
-                  % off
+                  {discountInfo.discountPercent}% off
                 </span>
               </>
             )}
           </div>
-
-
 
           <div className="border rounded-[2px] p-4 mb-6 bg-slate-50">
             <h4 className="font-bold text-slate-800 mb-2 text-sm">
@@ -3809,20 +4223,33 @@ const ProductPage = ({
           </div>
 
           <div className="grid grid-cols-2 gap-4 border-t pt-6">
-            <div>
-              <p className="text-slate-400 text-xs font-bold uppercase mb-1">
-                Warranty
-              </p>
-              <p className="text-slate-800 text-sm font-medium">
-                1 Year Warranty
-              </p>
-            </div>
+            {storeSettings?.warrantySummary ? (
+              <div>
+                <p className="text-slate-400 text-xs font-bold uppercase mb-1">
+                  Warranty
+                </p>
+                <p className="text-slate-800 text-sm font-medium">
+                  {storeSettings.warrantySummary}
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-slate-400 text-xs font-bold uppercase mb-1">
+                  Return Policy
+                </p>
+                <p className="text-slate-800 text-sm font-medium">
+                  {product.returnPolicy === "No Return"
+                    ? "No Return"
+                    : "7 Days Return"}
+                </p>
+              </div>
+            )}
             <div>
               <p className="text-slate-400 text-xs font-bold uppercase mb-1">
                 Seller
               </p>
               <p className="text-slate-800 text-sm font-medium">
-                MyshopMyhome Official
+                MyshopMyhome.shop
               </p>
             </div>
           </div>
@@ -3838,29 +4265,42 @@ const ProductPage = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Review Summary */}
           <div className="lg:col-span-1">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="text-5xl font-bold text-slate-900">
-                {product.rating}
-              </div>
-              <div>
-                <div className="flex text-orange-400">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star
-                      key={s}
-                      size={20}
-                      fill={
-                        s <= Math.round(product.rating)
-                          ? "currentColor"
-                          : "none"
-                      }
-                    />
-                  ))}
+            {reviewStats.hasVerifiedReviews ? (
+              <div className="flex items-center gap-4 mb-6">
+                <div className="text-5xl font-bold text-slate-900">
+                  {reviewStats.rating}
                 </div>
-                <p className="text-slate-500 text-sm font-medium mt-1">
-                  {product.reviews} Ratings & Reviews
+                <div>
+                  <div className="flex text-orange-400">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        size={20}
+                        fill={
+                          s <= Math.round(reviewStats.rating)
+                            ? "currentColor"
+                            : "none"
+                        }
+                      />
+                    ))}
+                  </div>
+                  <p className="text-slate-500 text-sm font-medium mt-1">
+                    {reviewStats.count} Verified Review
+                    {reviewStats.count === 1 ? "" : "s"}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <p className="text-sm font-bold text-slate-700">
+                  No verified reviews yet
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Ratings appear only after verified customer reviews are
+                  submitted.
                 </p>
               </div>
-            </div>
+            )}
 
             {/* Write a Review Form */}
             <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
@@ -4015,6 +4455,8 @@ const ProductPage = ({
 
 const ProductDetailsModal = ({ product, close, addToCart, buyNow }: any) => {
   const [qty, setQty] = useState(1);
+  const discountInfo = getValidDiscount(product.price, product.oldPrice);
+  const reviewStats = getVerifiedReviewStats(product);
 
   return (
     <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 md:p-6 animate-in fade-in duration-300">
@@ -4028,13 +4470,16 @@ const ProductDetailsModal = ({ product, close, addToCart, buyNow }: any) => {
 
         {/* Image Section */}
         <div className="w-full md:w-1/2 bg-white p-8 flex items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 relative">
-          <div className="absolute top-4 left-4">
-            <span className="bg-[#26a541] text-white text-xs font-bold px-2 py-1 rounded-[2px] shadow-sm">
-              25% off
-            </span>
-          </div>
-          <img
+          {discountInfo.hasValidDiscount && (
+            <div className="absolute top-4 left-4">
+              <span className="bg-[#26a541] text-white text-xs font-bold px-2 py-1 rounded-[2px] shadow-sm">
+                {discountInfo.discountPercent}% off
+              </span>
+            </div>
+          )}
+          <SafeProductImage
             src={product.image}
+            alt={product.name}
             className="max-w-full max-h-[300px] md:max-h-[400px] object-contain hover:scale-105 transition-transform duration-500"
           />
           <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
@@ -4063,12 +4508,21 @@ const ProductDetailsModal = ({ product, close, addToCart, buyNow }: any) => {
           </h2>
 
           <div className="flex items-center gap-3 mb-4">
-            <span className="bg-[#388e3c] text-white text-xs font-bold px-1.5 py-0.5 rounded-[2px] flex items-center gap-0.5">
-              {product.rating} <Star size={10} fill="white" />
-            </span>
-            <span className="text-slate-500 text-sm font-medium">
-              {product.reviews} Ratings & Reviews
-            </span>
+            {reviewStats.hasVerifiedReviews ? (
+              <>
+                <span className="bg-[#388e3c] text-white text-xs font-bold px-1.5 py-0.5 rounded-[2px] flex items-center gap-0.5">
+                  {reviewStats.averageRating} <Star size={10} fill="white" />
+                </span>
+                <span className="text-slate-500 text-sm font-medium">
+                  {reviewStats.reviewCount} Verified{" "}
+                  {reviewStats.reviewCount === 1 ? "Review" : "Reviews"}
+                </span>
+              </>
+            ) : (
+              <span className="text-slate-400 text-xs font-medium">
+                No verified reviews yet
+              </span>
+            )}
             <span
               className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${product.returnPolicy === "No Return" ? "bg-rose-50 text-rose-600 border border-rose-100" : "bg-emerald-50 text-emerald-600 border border-emerald-100"}`}
             >
@@ -4082,10 +4536,16 @@ const ProductDetailsModal = ({ product, close, addToCart, buyNow }: any) => {
             <span className="text-3xl font-bold text-slate-900">
               ₹{product.price}
             </span>
-            <span className="text-slate-400 text-sm line-through">
-              ₹{product.price + 500}
-            </span>
-            <span className="text-[#388e3c] font-bold text-sm">25% off</span>
+            {discountInfo.hasValidDiscount && (
+              <>
+                <span className="text-slate-400 text-sm line-through">
+                  ₹{product.oldPrice}
+                </span>
+                <span className="text-[#388e3c] font-bold text-sm">
+                  {discountInfo.discountPercent}% off
+                </span>
+              </>
+            )}
           </div>
 
           <div className="mb-6">
@@ -4141,7 +4601,9 @@ const ProductDetailsModal = ({ product, close, addToCart, buyNow }: any) => {
                 Warranty
               </p>
               <p className="text-slate-800 text-sm font-medium">
-                1 Year Warranty
+                {product.warranty && product.warranty.trim()
+                  ? product.warranty
+                  : "Check product specifications"}
               </p>
             </div>
             <div>
@@ -4160,9 +4622,11 @@ const ProductDetailsModal = ({ product, close, addToCart, buyNow }: any) => {
               <h3 className="text-lg font-bold text-slate-900">
                 Ratings & Reviews
               </h3>
-              <div className="flex items-center gap-1 text-xs font-bold text-amber-500 bg-amber-50 px-2 py-1 rounded-lg">
-                {product.rating} <Star size={10} fill="currentColor" />
-              </div>
+              {reviewStats.hasVerifiedReviews && (
+                <div className="flex items-center gap-1 text-xs font-bold text-amber-500 bg-amber-50 px-2 py-1 rounded-lg">
+                  {reviewStats.averageRating} <Star size={10} fill="currentColor" />
+                </div>
+              )}
             </div>
 
             {/* Add Review Form */}
@@ -4393,7 +4857,11 @@ const WishlistView = ({
                 <Trash2 size={16} />
               </button>
               <div className="aspect-square rounded-2xl bg-slate-50 mb-4 overflow-hidden">
-                <img src={p.image} className="w-full h-full object-cover" />
+                <SafeProductImage
+                  src={p.image}
+                  alt={p.name}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <h4 className="font-bold text-slate-900 mb-1 truncate">
                 {p.name}
@@ -4531,13 +4999,19 @@ const CartDrawer = ({
             </button>
           </div>
         ) : (
-          cart.map((i: any, idx: number) => (
+          cart.map((i: any, idx: number) => {
+            const itemDiscount = getValidDiscount(i.price, i.oldPrice);
+            return (
             <div
               key={idx}
               className="flex gap-4 items-start bg-white p-3 rounded-sm border border-slate-200 hover:shadow-sm transition-all"
             >
               <div className="w-20 h-20 flex-shrink-0">
-                <img src={i.image} className="w-full h-full object-contain" />
+                <SafeProductImage
+                  src={i.image}
+                  alt={i.name}
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div className="flex-grow">
                 <h4 className="font-medium text-sm text-slate-900 line-clamp-2 mb-1">
@@ -4547,12 +5021,16 @@ const CartDrawer = ({
                   <span className="font-bold text-slate-900 text-base">
                     ₹{i.price}
                   </span>
-                  <span className="text-xs text-slate-400 line-through">
-                    ₹{i.price + 500}
-                  </span>
-                  <span className="text-xs font-bold text-[#388e3c]">
-                    25% off
-                  </span>
+                  {itemDiscount.hasValidDiscount && (
+                    <>
+                      <span className="text-xs text-slate-400 line-through">
+                        ₹{i.oldPrice}
+                      </span>
+                      <span className="text-xs font-bold text-[#388e3c]">
+                        {itemDiscount.discountPercent}% off
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between mt-2">
@@ -4580,7 +5058,8 @@ const CartDrawer = ({
                 </div>
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
       <div className="pt-4 border-t mt-4">

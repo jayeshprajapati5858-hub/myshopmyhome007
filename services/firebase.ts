@@ -328,3 +328,77 @@ export const deleteReviewFromProduct = async (productId: string, reviewId: strin
     throw e;
   }
 };
+
+export const getStoreSettingsFromFirebase = async () => {
+  const settingsRef = doc(db, "settings", "store_config");
+  try {
+    const snap = await getDoc(settingsRef);
+    if (snap.exists()) {
+      return snap.data();
+    }
+    return null;
+  } catch (e: any) {
+    console.warn("Firestore unreachable for settings, trying cache:", e.message);
+    try {
+      const snap = await getDocFromCache(settingsRef);
+      if (snap.exists()) {
+        return snap.data();
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+};
+
+export const saveStoreSettingsToFirebase = async (settings: any) => {
+  try {
+    const settingsRef = doc(db, "settings", "store_config");
+    const payload = {
+      ...settings,
+      updatedAt: new Date().toISOString(),
+    };
+    await setDoc(settingsRef, payload, { merge: true });
+    return payload;
+  } catch (e) {
+    console.error("Error saving store settings:", e);
+    throw e;
+  }
+};
+
+export const getBuyingGuidesFromFirebase = async (): Promise<any[]> => {
+  try {
+    const q = query(collection(db, "guides"));
+    const querySnapshot = await getDocs(q);
+    const guides: any[] = [];
+    querySnapshot.forEach((docSnap) => {
+      guides.push(docSnap.data());
+    });
+    return guides;
+  } catch (e: any) {
+    console.warn("Firestore unreachable for guides, trying cache:", e.message);
+    try {
+      const q = query(collection(db, "guides"));
+      const querySnapshot = await getDocsFromCache(q);
+      const guides: any[] = [];
+      querySnapshot.forEach((docSnap) => {
+        guides.push(docSnap.data());
+      });
+      return guides;
+    } catch {
+      return [];
+    }
+  }
+};
+
+export const saveBuyingGuideToFirebase = async (guide: any) => {
+  try {
+    const docRef = doc(db, "guides", guide.id);
+    await setDoc(docRef, guide, { merge: true });
+    return guide.id;
+  } catch (e) {
+    console.error("Error saving buying guide:", e);
+    throw e;
+  }
+};
+
