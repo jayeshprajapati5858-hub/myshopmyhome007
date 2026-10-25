@@ -1051,154 +1051,175 @@ const AppContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] flex flex-col font-sans selection:bg-indigo-600 selection:text-white pb-20 md:pb-0">
+    <div className="min-h-screen bg-[#f8f9fa] flex flex-col font-sans selection:bg-indigo-600 selection:text-white pb-24 md:pb-0 overflow-x-hidden">
       <nav className="sticky top-0 z-40 bg-blue-600 shadow-md transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex justify-between items-center gap-4">
-          <div
-            className="flex items-center gap-3 cursor-pointer group min-w-fit"
-            onClick={() => {
-              navigate("/");
-              setIsAdminOpen(false);
-              setIsWishlistOpen(false);
-              setIsCartOpen(false);
-            }}
-          >
-            <div className="bg-white p-2 rounded-xl shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
-              <Home size={24} className="text-blue-600" fill="currentColor" />
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-white font-black text-xl md:text-2xl tracking-tight">
-                Myshop<span className="text-orange-400">Myhome</span>
-              </span>
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] font-bold text-blue-100 opacity-80 tracking-widest uppercase">
+        <div className="max-w-7xl mx-auto px-3 md:px-6">
+          <div className="h-14 md:h-16 flex justify-between items-center gap-2">
+            <div
+              className="flex items-center gap-2 cursor-pointer group min-w-fit"
+              onClick={() => {
+                navigate("/");
+                setIsAdminOpen(false);
+                setIsWishlistOpen(false);
+                setIsCartOpen(false);
+              }}
+            >
+              <div className="bg-white p-1.5 md:p-2 rounded-xl shadow-md group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                <Home size={20} className="text-blue-600 md:w-6 md:h-6" fill="currentColor" />
+              </div>
+              <div className="flex flex-col leading-none">
+                <span className="text-white font-black text-base md:text-2xl tracking-tight">
+                  Myshop<span className="text-orange-400">Myhome</span>
+                </span>
+                <span className="text-[9px] md:text-[10px] font-bold text-blue-100 opacity-80 uppercase tracking-widest hidden sm:inline">
                   Premium Store
                 </span>
-                <div className="w-1 h-1 rounded-full bg-orange-400" />
-                <Star
-                  size={8}
-                  className="text-orange-400"
-                  fill="currentColor"
+              </div>
+            </div>
+
+            {/* Desktop Search Bar */}
+            <div className="hidden md:block flex-grow max-w-2xl relative group px-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search for products, brands and more"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-white text-sm text-slate-900 p-2.5 pl-4 pr-10 rounded-[2px] shadow-sm outline-none focus:ring-0"
+                />
+                <Search
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-orange-600"
+                  size={20}
                 />
               </div>
             </div>
-          </div>
 
-          {/* Search Bar - Desktop & Mobile */}
-          <div className="flex-grow max-w-2xl relative group">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search for products, brands and more"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white text-sm text-slate-900 p-2.5 pl-4 pr-10 rounded-[2px] shadow-sm outline-none focus:ring-0"
-              />
-              <Search
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-orange-600"
-                size={20}
-              />
+            {/* Desktop Nav */}
+            <div className="hidden md:flex items-center gap-6 md:gap-8 min-w-fit">
+              {user ? (
+                <div className="relative group">
+                  <button className="flex items-center gap-2 font-bold text-white hover:text-slate-100">
+                    <User size={20} />
+                    <span>{user.email?.split("@")[0]}</span>
+                  </button>
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden hidden group-hover:block animate-in fade-in slide-in-from-top-2">
+                    <button
+                      onClick={() => setIsProfileOpen(true)}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 text-slate-700 font-medium flex items-center gap-2"
+                    >
+                      <UserCircle size={16} /> My Profile
+                    </button>
+                    <button
+                      onClick={() => setIsMyOrdersOpen(true)}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 text-slate-700 font-medium flex items-center gap-2"
+                    >
+                      <Package size={16} /> My Orders
+                    </button>
+                    {user.email === "admin@mobigear.local" && (
+                      <button
+                        onClick={() => setIsAdminOpen(true)}
+                        className="w-full text-left px-4 py-3 hover:bg-slate-50 text-slate-700 font-medium flex items-center gap-2"
+                      >
+                        <ShieldCheck size={16} /> Admin Panel
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        logoutUser();
+                        setIsAdminOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-rose-50 text-rose-600 font-medium flex items-center gap-2 border-t"
+                    >
+                      <User size={16} /> Logout
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsLoginOpen(true)}
+                  className="bg-white text-[#2874f0] px-8 py-1 font-bold text-sm shadow-sm hover:bg-slate-50 transition-colors rounded-[2px]"
+                >
+                  Login
+                </button>
+              )}
+
+              <button
+                onClick={() => setIsWishlistOpen(true)}
+                className="text-white font-bold text-base flex items-center gap-1 hover:text-slate-100"
+              >
+                <span>Wishlist</span>
+                {wishlist.length > 0 && (
+                  <span className="bg-[#ffe500] text-[#2874f0] text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center">
+                    {wishlist.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setIsCartOpen(true)}
+                className="text-white font-bold text-base flex items-center gap-2 hover:text-slate-100"
+              >
+                <ShoppingCart size={20} />
+                <span>Cart</span>
+                {cart.length > 0 && (
+                  <span className="bg-[#ffe500] text-[#2874f0] text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center">
+                    {cart.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setIsInstallModalOpen(true)}
+                className="bg-white/10 text-white px-4 py-1.5 font-bold text-sm hover:bg-white/20 transition-colors rounded-[2px] flex items-center gap-2 border border-white/20"
+              >
+                <Download size={16} /> Install App
+              </button>
+            </div>
+
+            {/* Mobile Actions */}
+            <div className="md:hidden flex items-center gap-2 text-white">
+              <button
+                onClick={() => setIsWishlistOpen(true)}
+                className="relative p-1.5 hover:bg-white/10 rounded-full transition-colors"
+                title="Wishlist"
+              >
+                <Heart size={20} className={wishlist.length > 0 ? "fill-orange-400 text-orange-400" : ""} />
+                {wishlist.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-orange-400 text-slate-900 text-[9px] font-bold h-3.5 w-3.5 rounded-full flex items-center justify-center">
+                    {wishlist.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setIsCartOpen(true)}
+                className="relative p-1.5 hover:bg-white/10 rounded-full transition-colors"
+                title="Cart"
+              >
+                <ShoppingCart size={20} />
+                {cart.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#d32f2f] text-white text-[9px] font-bold h-3.5 w-3.5 rounded-full flex items-center justify-center">
+                    {cart.length}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
 
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-6 md:gap-8 min-w-fit">
-            {user ? (
-              <div className="relative group">
-                <button className="flex items-center gap-2 font-bold text-white hover:text-slate-100">
-                  <User size={20} />
-                  <span>{user.email?.split("@")[0]}</span>
-                </button>
-                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden hidden group-hover:block animate-in fade-in slide-in-from-top-2">
-                  <button
-                    onClick={() => setIsProfileOpen(true)}
-                    className="w-full text-left px-4 py-3 hover:bg-slate-50 text-slate-700 font-medium flex items-center gap-2"
-                  >
-                    <UserCircle size={16} /> My Profile
-                  </button>
-                  <button
-                    onClick={() => setIsMyOrdersOpen(true)}
-                    className="w-full text-left px-4 py-3 hover:bg-slate-50 text-slate-700 font-medium flex items-center gap-2"
-                  >
-                    <Package size={16} /> My Orders
-                  </button>
-                  {user.email === "admin@mobigear.local" && (
-                    <button
-                      onClick={() => setIsAdminOpen(true)}
-                      className="w-full text-left px-4 py-3 hover:bg-slate-50 text-slate-700 font-medium flex items-center gap-2"
-                    >
-                      <ShieldCheck size={16} /> Admin Panel
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      logoutUser();
-                      setIsAdminOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 hover:bg-rose-50 text-rose-600 font-medium flex items-center gap-2 border-t"
-                  >
-                    <User size={16} /> Logout
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setIsLoginOpen(true)}
-                className="bg-white text-[#2874f0] px-8 py-1 font-bold text-sm shadow-sm hover:bg-slate-50 transition-colors rounded-[2px]"
-              >
-                Login
-              </button>
-            )}
-
-            <button
-              onClick={() => setIsWishlistOpen(true)}
-              className="text-white font-bold text-base flex items-center gap-1 hover:text-slate-100"
-            >
-              <span>Wishlist</span>
-              {wishlist.length > 0 && (
-                <span className="bg-[#ffe500] text-[#2874f0] text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center">
-                  {wishlist.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setIsCartOpen(true)}
-              className="text-white font-bold text-base flex items-center gap-2 hover:text-slate-100"
-            >
-              <ShoppingCart size={20} />
-              <span>Cart</span>
-              {cart.length > 0 && (
-                <span className="bg-[#ffe500] text-[#2874f0] text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center">
-                  {cart.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setIsInstallModalOpen(true)}
-              className="bg-white/10 text-white px-4 py-1.5 font-bold text-sm hover:bg-white/20 transition-colors rounded-[2px] flex items-center gap-2 border border-white/20"
-            >
-              <Download size={16} /> Install App
-            </button>
-          </div>
-
-          {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center gap-3 text-white">
-            <button onClick={() => setIsInstallModalOpen(true)} className="p-1">
-              <Download size={24} />
-            </button>
-            <button
-              onClick={() => setIsCartOpen(true)}
-              className="relative p-1"
-            >
-              <ShoppingCart size={24} />
-              {cart.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-[#d32f2f] text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center border border-white">
-                  {cart.length}
-                </span>
-              )}
-            </button>
+          {/* Mobile Second Row Search Bar */}
+          <div className="pb-2.5 md:hidden">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search products, brands and more..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white text-xs text-slate-900 p-2 pl-3 pr-8 rounded-[4px] shadow-sm outline-none"
+              />
+              <Search
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-orange-600"
+                size={16}
+              />
+            </div>
           </div>
         </div>
       </nav>
@@ -1281,19 +1302,19 @@ const AppContent = () => {
 
                   {/* Product Grid */}
                   <div className="max-w-7xl mx-auto px-2 md:px-4 pb-16">
-                    <div className="bg-white p-4 shadow-sm rounded-sm mb-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2 mb-4 border-b pb-4">
-                        <h3 className="text-xl font-bold text-slate-800">
+                    <div className="bg-white p-3 md:p-4 shadow-sm rounded-sm mb-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-4 border-b pb-3">
+                        <h3 className="text-lg md:text-xl font-bold text-slate-800">
                           Best of Electronics
                         </h3>
                         <Link
                           to="/buying-guides"
-                          className="text-xs font-bold text-blue-600 hover:text-orange-600 transition-colors"
+                          className="text-[11px] md:text-xs font-bold text-blue-600 hover:text-orange-600 transition-colors"
                         >
-                          Not sure what to pick? Read our Buying Guides →
+                          Read Buying Guides →
                         </Link>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
                         {filteredProducts.map((p) => {
                           const reviewStats = getVerifiedReviewStats(p);
                           const discountInfo = getValidDiscount(
@@ -1304,7 +1325,7 @@ const AppContent = () => {
                             <div
                               key={p.id}
                               onClick={() => navigate(`/product/${p.id}`)}
-                              className="group relative bg-white hover:shadow-xl transition-shadow duration-300 p-4 border border-transparent hover:border-slate-100 rounded-sm cursor-pointer flex flex-col items-center text-center"
+                              className="group relative bg-white hover:shadow-xl transition-shadow duration-300 p-2.5 md:p-4 border border-slate-100 hover:border-slate-200 rounded-sm cursor-pointer flex flex-col items-center text-center"
                             >
                               {/* Wishlist Heart */}
                               <button
@@ -1324,7 +1345,7 @@ const AppContent = () => {
                                 />
                               </button>
 
-                              <div className="h-32 md:h-40 w-full mb-4 flex items-center justify-center relative">
+                              <div className="h-28 md:h-40 w-full mb-3 flex items-center justify-center relative overflow-hidden">
                                 <SafeProductImage
                                   src={p.image}
                                   alt={p.name}
@@ -1333,42 +1354,42 @@ const AppContent = () => {
                                 />
                               </div>
 
-                              <h3 className="font-medium text-slate-900 text-sm mb-1 line-clamp-2 hover:text-[#2874f0]">
+                              <h3 className="font-medium text-slate-900 text-xs md:text-sm mb-1.5 line-clamp-2 h-8 md:h-10 hover:text-[#2874f0]">
                                 {p.name}
                               </h3>
 
-                              <div className="mt-auto pt-2 w-full">
+                              <div className="mt-auto pt-1 w-full flex flex-col items-center">
                                 {reviewStats.hasVerifiedReviews && (
-                                  <div className="flex items-center justify-center gap-2 mb-1">
-                                    <span className="bg-[#388e3c] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] flex items-center gap-0.5">
-                                      {reviewStats.rating}{" "}
+                                  <div className="flex items-center justify-center gap-1.5 mb-1">
+                                    <span className="bg-[#388e3c] text-white text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] flex items-center gap-0.5">
+                                      {reviewStats.averageRating}{" "}
                                       <Star size={8} fill="white" />
                                     </span>
-                                    <span className="text-slate-400 text-xs">
-                                      ({reviewStats.count})
+                                    <span className="text-slate-400 text-[10px] md:text-xs">
+                                      ({reviewStats.reviewCount})
                                     </span>
                                   </div>
                                 )}
 
-                                <div className="flex flex-wrap items-center justify-center gap-1.5 mb-2">
-                                  <span className="text-base font-bold text-slate-900">
+                                <div className="flex flex-wrap items-center justify-center gap-1.5 mb-1.5">
+                                  <span className="text-sm md:text-base font-bold text-slate-900">
                                     ₹{p.price}
                                   </span>
-                                  {discountInfo.showDiscount && (
+                                  {discountInfo.isValidDiscount && (
                                     <>
-                                      <span className="text-xs text-slate-400 line-through">
+                                      <span className="text-[11px] md:text-xs text-slate-400 line-through">
                                         ₹{p.oldPrice}
                                       </span>
-                                      <span className="text-xs font-bold text-[#388e3c]">
+                                      <span className="text-[11px] md:text-xs font-bold text-[#388e3c]">
                                         {discountInfo.discountPercent}% off
                                       </span>
                                     </>
                                   )}
                                 </div>
 
-                                <div className="mb-3">
+                                <div className="mb-2.5">
                                   <span
-                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.returnPolicy === "No Return" ? "bg-rose-50 text-rose-600 border border-rose-100" : "bg-emerald-50 text-emerald-600 border border-emerald-100"}`}
+                                    className={`text-[9px] md:text-[10px] font-bold px-2 py-0.5 rounded-full ${p.returnPolicy === "No Return" ? "bg-rose-50 text-rose-600 border border-rose-100" : "bg-emerald-50 text-emerald-600 border border-emerald-100"}`}
                                   >
                                     {p.returnPolicy === "No Return"
                                       ? "No Return"
@@ -1381,7 +1402,7 @@ const AppContent = () => {
                                     e.stopPropagation();
                                     addToCart(p);
                                   }}
-                                  className="w-full py-2 bg-[#ff9f00] text-white text-sm font-bold uppercase rounded-[2px] hover:shadow-md transition-shadow"
+                                  className="w-full py-2 bg-[#ff9f00] text-white text-xs md:text-sm font-bold uppercase rounded-[2px] hover:shadow-md transition-shadow active:scale-95"
                                 >
                                   Add to Cart
                                 </button>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ImageOff } from "lucide-react";
+import { ImageOff, Package } from "lucide-react";
 import { Product } from "../types";
 
 const KNOWN_MISMATCHED_STOCK_URLS: { urlPart: string; wrongForKeywords: string[]; reason: string }[] = [
@@ -201,11 +201,11 @@ export const SafeProductImage: React.FC<{
       <div
         role="img"
         aria-label={`${alt} - Image unavailable`}
-        className={`flex flex-col items-center justify-center bg-slate-50 text-slate-400 p-3 text-center select-none ${fallbackClassName || className}`}
+        className={`flex flex-col items-center justify-center bg-slate-100 text-slate-500 p-2 text-center select-none ${fallbackClassName || className}`}
       >
-        <ImageOff size={28} className="mb-1.5 opacity-60" />
-        <span className="text-[11px] font-medium leading-tight text-slate-500">
-          Image unavailable
+        <Package size={20} className="mb-1 opacity-70 text-slate-500" />
+        <span className="text-[10px] font-semibold leading-tight text-slate-600 truncate max-w-full">
+          {alt || "Item"}
         </span>
       </div>
     );
@@ -218,8 +218,10 @@ export const SafeProductImage: React.FC<{
       className={className}
       loading="lazy"
       onError={() => {
-        setHasError(true);
-        if (onBrokenChange) onBrokenChange(true);
+        if (!hasError) {
+          setHasError(true);
+          if (onBrokenChange) onBrokenChange(true);
+        }
       }}
       onLoad={() => {
         if (onBrokenChange) onBrokenChange(false);
