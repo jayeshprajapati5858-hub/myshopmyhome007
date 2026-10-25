@@ -132,16 +132,22 @@ export function getImageConsistencyWarning(product: Product): string | null {
   return null;
 }
 
-export function parseProductDescription(desc: string): { bullets: string[]; specs: { label: string; value: string }[] } {
+export function parseProductDescription(desc: string, product?: Product): { bullets: string[]; specs: { label: string; value: string }[] } {
   if (!desc) return { bullets: [], specs: [] };
-  const sentences = desc
-    .split(/[\.\n]/)
-    .map((s) => s.trim())
+
+  let cleanDesc = desc
+    .replace(/[\u{1F000}-\u{1F6FF}]|[\u{1F900}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '')
+    .replace(/(best in market|buy now|hurry|limited stock|special offer|100% verified|best quality|verified authentic)[!.]*/gi, '')
+    .trim();
+
+  const rawSentences = cleanDesc
+    .split(/[\.\n\•\-]/)
+    .map((s) => s.replace(/^\d+[\.\)]\s*/, '').trim())
     .filter((s) => s.length > 3);
 
   const uniqueSentences: string[] = [];
   const seen = new Set<string>();
-  for (const s of sentences) {
+  for (const s of rawSentences) {
     const lower = s.toLowerCase();
     if (!seen.has(lower)) {
       seen.add(lower);
@@ -149,13 +155,41 @@ export function parseProductDescription(desc: string): { bullets: string[]; spec
     }
   }
 
-  const bullets = uniqueSentences.slice(0, 5);
-  const specs = [
-    { label: "Platform", value: "MyshopMyhome.shop" },
-    { label: "Category", value: "Mobile Accessories & Gadgets" },
-    { label: "Quality Verification", value: "Verified Authentic" },
-    { label: "Delivery", value: "Fast Pan-India Shipping" },
-  ];
+  let bullets = uniqueSentences;
+
+  const combinedText = `${product?.name || ""} ${desc}`.toLowerCase();
+  const isPowerBank = combinedText.includes('power bank') || combinedText.includes('hitage') || combinedText.includes('બેટરી');
+
+  if (isPowerBank && (combinedText.includes('10000') || combinedText.includes('20000') || combinedText.includes('display') || combinedText.includes('battery') || combinedText.includes('cable') || combinedText.includes('flash') || combinedText.includes('power'))) {
+    bullets = [
+      "High capacity battery cell storage for multiple mobile device charges",
+      "Built-in digital battery percentage display for precise power tracking",
+      "Convenient built-in charging cables compatible with major devices",
+      "Integrated emergency LED flashlight for low-light utility"
+    ];
+  } else if (bullets.length === 0) {
+    bullets = [desc];
+  }
+
+  const specs: { label: string; value: string }[] = [];
+  if (product?.brand && product.brand.trim()) {
+    specs.push({ label: "Brand", value: product.brand.trim() });
+  }
+  if (product?.model && product.model.trim()) {
+    specs.push({ label: "Model", value: product.model.trim() });
+  }
+
+  const capacityVal = product?.capacity?.trim() || (isPowerBank ? (desc.match(/\d+[\s]*[mM]?[aA][hH]/)?.[0] || "") : "");
+  if (capacityVal) {
+    specs.push({ label: "Capacity", value: capacityVal });
+  }
+
+  if (product?.inputSpec && product.inputSpec.trim()) {
+    specs.push({ label: "Input", value: product.inputSpec.trim() });
+  }
+  if (product?.outputSpec && product.outputSpec.trim()) {
+    specs.push({ label: "Output", value: product.outputSpec.trim() });
+  }
 
   return { bullets, specs };
 }

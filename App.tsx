@@ -1936,6 +1936,11 @@ const AdminPanel = ({
     status: "published" as "published" | "draft",
     listingConfirmed: false,
     imageConfirmed: false,
+    brand: "",
+    model: "",
+    capacity: "",
+    inputSpec: "",
+    outputSpec: "",
   });
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
@@ -2130,6 +2135,11 @@ const AdminPanel = ({
           status: newProduct.status || "published",
           listingConfirmed: Boolean(newProduct.listingConfirmed),
           imageConfirmed: Boolean(newProduct.imageConfirmed),
+          brand: newProduct.brand?.trim() || undefined,
+          model: newProduct.model?.trim() || undefined,
+          capacity: newProduct.capacity?.trim() || undefined,
+          inputSpec: newProduct.inputSpec?.trim() || undefined,
+          outputSpec: newProduct.outputSpec?.trim() || undefined,
         }
       : {
           id: String(Date.now()),
@@ -2148,6 +2158,11 @@ const AdminPanel = ({
           status: newProduct.status || "published",
           listingConfirmed: true,
           imageConfirmed: Boolean(mainImage && mainImage.startsWith("/uploads/")),
+          brand: newProduct.brand?.trim() || undefined,
+          model: newProduct.model?.trim() || undefined,
+          capacity: newProduct.capacity?.trim() || undefined,
+          inputSpec: newProduct.inputSpec?.trim() || undefined,
+          outputSpec: newProduct.outputSpec?.trim() || undefined,
         };
 
     try {
@@ -2308,6 +2323,11 @@ const AdminPanel = ({
       status: p.status || "published",
       listingConfirmed: Boolean(p.listingConfirmed),
       imageConfirmed: Boolean(p.imageConfirmed),
+      brand: p.brand || "",
+      model: p.model || "",
+      capacity: p.capacity || "",
+      inputSpec: p.inputSpec || "",
+      outputSpec: p.outputSpec || "",
     });
     setIsAddProductOpen(true);
   };
@@ -3437,6 +3457,52 @@ const AdminPanel = ({
                   </div>
                 </div>
 
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 px-1 tracking-widest">Brand</label>
+                  <input
+                    placeholder="e.g. Hitage"
+                    value={newProduct.brand || ""}
+                    onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
+                    className="w-full p-4 bg-white rounded-xl border-none shadow-sm outline-none focus:ring-2 focus:ring-orange-600 font-bold text-sm mt-1"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 px-1 tracking-widest">Model</label>
+                  <input
+                    placeholder="e.g. Model X"
+                    value={newProduct.model || ""}
+                    onChange={(e) => setNewProduct({ ...newProduct, model: e.target.value })}
+                    className="w-full p-4 bg-white rounded-xl border-none shadow-sm outline-none focus:ring-2 focus:ring-orange-600 font-bold text-sm mt-1"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 px-1 tracking-widest">Capacity (if applicable)</label>
+                  <input
+                    placeholder="e.g. 10000mAh"
+                    value={newProduct.capacity || ""}
+                    onChange={(e) => setNewProduct({ ...newProduct, capacity: e.target.value })}
+                    className="w-full p-4 bg-white rounded-xl border-none shadow-sm outline-none focus:ring-2 focus:ring-orange-600 font-bold text-sm mt-1"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 px-1 tracking-widest">Input Spec</label>
+                  <input
+                    placeholder="e.g. 5V/2A"
+                    value={newProduct.inputSpec || ""}
+                    onChange={(e) => setNewProduct({ ...newProduct, inputSpec: e.target.value })}
+                    className="w-full p-4 bg-white rounded-xl border-none shadow-sm outline-none focus:ring-2 focus:ring-orange-600 font-bold text-sm mt-1"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 px-1 tracking-widest">Output Spec</label>
+                  <input
+                    placeholder="e.g. 5V/2.1A"
+                    value={newProduct.outputSpec || ""}
+                    onChange={(e) => setNewProduct({ ...newProduct, outputSpec: e.target.value })}
+                    className="w-full p-4 bg-white rounded-xl border-none shadow-sm outline-none focus:ring-2 focus:ring-orange-600 font-bold text-sm mt-1"
+                  />
+                </div>
+
                 <textarea
                   placeholder="Product Description"
                   value={newProduct.description}
@@ -4186,11 +4252,11 @@ const ProductPage = ({
       <div className="bg-white rounded-sm shadow-sm p-4 md:p-8 flex flex-col md:flex-row gap-8">
         {/* Image Section */}
         <div className="w-full md:w-1/2 flex flex-col gap-4">
-          <div className="aspect-square bg-white border border-slate-100 rounded-sm overflow-hidden flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-100 rounded-sm overflow-hidden flex items-center justify-center p-2 md:p-4 min-h-[220px] md:min-h-[380px]">
             <SafeProductImage
               src={activeImg}
-              className="max-h-full max-w-full object-contain"
-              fallbackClassName="w-full h-full rounded-lg"
+              className="w-full h-auto max-h-[320px] md:max-h-[460px] object-contain mx-auto"
+              fallbackClassName="w-full h-64 rounded-lg"
               alt={product.name}
             />
           </div>
@@ -4292,7 +4358,7 @@ const ProductPage = ({
               Product Highlights & Specifications
             </h4>
             {(() => {
-              const { bullets, specs } = parseProductDescription(product.description);
+              const { bullets, specs } = parseProductDescription(product.description, product);
               return (
                 <div className="space-y-4">
                   {bullets.length > 0 ? (
@@ -4304,19 +4370,29 @@ const ProductPage = ({
                   ) : (
                     <p className="text-slate-600 text-sm leading-relaxed">{product.description}</p>
                   )}
-                  <div className="border-t pt-3">
-                    <p className="text-xs font-bold uppercase text-slate-400 mb-2">Specifications</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                      {specs.map((spec: { label: string; value: string }, idx: number) => (
-                        <div key={idx} className="flex justify-between bg-white p-2 rounded border border-slate-100">
-                          <span className="font-bold text-slate-500">{spec.label}:</span>
-                          <span className="font-medium text-slate-800">{spec.value}</span>
-                        </div>
-                      ))}
-                      <div className="flex justify-between bg-white p-2 rounded border border-slate-100">
-                        <span className="font-bold text-slate-500">Return Policy:</span>
-                        <span className="font-medium text-slate-800">{product.returnPolicy === "No Return" ? "No Return" : "7 Days Return"}</span>
+                  {specs.length > 0 && (
+                    <div className="border-t pt-3">
+                      <p className="text-xs font-bold uppercase text-slate-400 mb-2">Specifications</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        {specs.map((spec: { label: string; value: string }, idx: number) => (
+                          <div key={idx} className="flex justify-between bg-white p-2 rounded border border-slate-100">
+                            <span className="font-bold text-slate-500">{spec.label}:</span>
+                            <span className="font-medium text-slate-800">{spec.value}</span>
+                          </div>
+                        ))}
                       </div>
+                    </div>
+                  )}
+                  <div className="border-t pt-3 space-y-2">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-slate-400 mb-0.5">Shipping Information</p>
+                      <p className="text-xs text-slate-700 font-medium">{storeSettings?.shippingSummary || storeSettings?.deliveryTimeline || "Standard Pan-India delivery within 3-7 business days."}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-slate-400 mb-0.5">Return Policy</p>
+                      <p className="text-xs text-slate-700 font-medium">
+                        {product.returnPolicy === "No Return" ? "No Return applicable on this product." : "7 Days Return policy eligible for manufacturing defects or incorrect items."}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -4579,11 +4655,13 @@ const ProductDetailsModal = ({ product, close, addToCart, buyNow }: any) => {
               </span>
             </div>
           )}
-          <SafeProductImage
-            src={product.image}
-            alt={product.name}
-            className="max-w-full max-h-[300px] md:max-h-[400px] object-contain hover:scale-105 transition-transform duration-500"
-          />
+          <div className="w-full flex items-center justify-center overflow-hidden min-h-[220px] md:min-h-[360px]">
+            <SafeProductImage
+              src={product.image}
+              alt={product.name}
+              className="w-full h-auto max-h-[320px] md:max-h-[440px] object-contain hover:scale-105 transition-transform duration-500 mx-auto"
+            />
+          </div>
           <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
             <button
               onClick={() => addToCart(product, qty)}

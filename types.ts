@@ -23,6 +23,11 @@ export interface Product {
   status?: 'published' | 'draft';
   listingConfirmed?: boolean;
   imageConfirmed?: boolean;
+  brand?: string;
+  model?: string;
+  capacity?: string;
+  inputSpec?: string;
+  outputSpec?: string;
 }
 
 export interface Review {
