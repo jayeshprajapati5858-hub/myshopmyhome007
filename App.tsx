@@ -75,6 +75,7 @@ import {
   getVerifiedReviewStats,
   getProductQualityWarnings,
   SafeProductImage,
+  parseProductDescription,
 } from "./utils/productQuality";
 import {
   AboutPage,
@@ -1345,7 +1346,7 @@ const AppContent = () => {
                                 />
                               </button>
 
-                              <div className="h-28 md:h-40 w-full mb-3 flex items-center justify-center relative overflow-hidden">
+                              <div className="h-24 md:h-40 w-full mb-2 flex items-center justify-center relative overflow-hidden">
                                 <SafeProductImage
                                   src={p.image}
                                   alt={p.name}
@@ -2552,7 +2553,14 @@ const AdminPanel = ({
                         <td className="p-6 text-right flex items-center justify-end gap-2">
                           <button
                             onClick={() => setSelectedOrder(o)}
+                            className="px-3 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-xs font-bold hover:bg-orange-100 transition-all flex items-center gap-1.5 shadow-sm"
+                          >
+                            <Eye size={14} /> View Details
+                          </button>
+                          <button
+                            onClick={() => setSelectedOrder(o)}
                             className="p-3 text-orange-600 hover:bg-orange-50 rounded-xl transition-all active:scale-75"
+                            title="Order Settings"
                           >
                             <Settings size={18} />
                           </button>
@@ -3544,9 +3552,9 @@ const AdminPanel = ({
                     </div>
                     {verifiedStats.hasVerifiedReviews ? (
                       <div className="flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">
-                        {verifiedStats.rating}{" "}
+                        {verifiedStats.averageRating}{" "}
                         <Star size={10} fill="currentColor" /> (
-                        {verifiedStats.count})
+                        {verifiedStats.reviewCount})
                       </div>
                     ) : (
                       <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
@@ -3574,7 +3582,7 @@ const AdminPanel = ({
                           Replace Image / Edit
                         </button>
                         {qualityWarnings.some(
-                          (w) => w.type === "placeholder_name",
+                          (w) => w.type === "placeholder_title",
                         ) && (
                           <button
                             type="button"
@@ -3938,32 +3946,77 @@ const OrderDetailsModal = ({ order, close, isAdmin, onUpdate }: any) => {
 
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
               <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <Package size={20} className="text-orange-600" /> Order Items
+                <Package size={20} className="text-orange-600" /> Order Items & Pricing
               </h3>
               <div className="space-y-4">
                 {order.items.map((item: any, idx: number) => (
                   <div
                     key={idx}
-                    className="flex justify-between items-center border-b border-slate-200 pb-2 last:border-0 last:pb-0"
+                    className="flex items-center gap-3 border-b border-slate-200 pb-3 last:border-0 last:pb-0"
                   >
-                    <div>
-                      <p className="font-bold text-slate-900">{item.name}</p>
+                    <div className="w-12 h-12 bg-white rounded-lg border overflow-hidden flex items-center justify-center shrink-0">
+                      <SafeProductImage
+                        src={item.image}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                        fallbackClassName="w-full h-full"
+                      />
+                    </div>
+                    <div className="flex-grow">
+                      <p className="font-bold text-slate-900 text-sm">{item.name}</p>
                       <p className="text-xs text-slate-500 font-bold">
-                        Qty: {item.quantity} x ₹{item.price}
+                        Qty: {item.quantity} × ₹{item.price}
                       </p>
                     </div>
-                    <p className="font-black text-slate-900">
+                    <p className="font-black text-slate-900 text-sm">
                       ₹{item.price * item.quantity}
                     </p>
                   </div>
                 ))}
-                <div className="flex justify-between items-center pt-4 border-t-2 border-dashed border-slate-200">
-                  <p className="font-black text-slate-900 text-lg">
-                    Total Amount
-                  </p>
-                  <p className="font-black text-orange-600 text-2xl">
-                    ₹{order.finalAmount}
-                  </p>
+                <div className="space-y-1.5 pt-3 border-t border-slate-200 text-sm">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Subtotal</span>
+                    <span>₹{order.totalAmount}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Shipping Fee</span>
+                    <span className="text-emerald-600 font-bold">Free (₹0)</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t-2 border-dashed border-slate-200">
+                    <p className="font-black text-slate-900 text-base">
+                      Total Amount
+                    </p>
+                    <p className="font-black text-orange-600 text-xl">
+                      ₹{order.finalAmount}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <CreditCard size={20} className="text-orange-600" /> Payment & Status
+              </h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-bold text-slate-400 uppercase text-xs block mb-1">Payment Method</span>
+                  <span className="font-bold text-slate-800">{order.paymentMethod || "COD"}</span>
+                </div>
+                <div>
+                  <span className="font-bold text-slate-400 uppercase text-xs block mb-1">Payment Status</span>
+                  <span className={`font-bold px-2 py-0.5 rounded text-xs inline-block ${order.razorpayPaymentId || order.paymentMethod === "Razorpay" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                    {order.razorpayPaymentId ? `Paid (${order.razorpayPaymentId.substring(0, 10)}...)` : "Pending / COD"}
+                  </span>
+                </div>
+                <div className="col-span-2 pt-2 border-t border-slate-200">
+                  <span className="font-bold text-slate-400 uppercase text-xs block mb-1">Order Status</span>
+                  <span className={`font-bold px-3 py-1 rounded-full text-xs inline-block ${
+                    order.status === "Delivered" ? "bg-emerald-100 text-emerald-700" :
+                    order.status === "Cancelled" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"
+                  }`}>
+                    {order.status}
+                  </span>
                 </div>
               </div>
             </div>
@@ -4201,11 +4254,11 @@ const ProductPage = ({
             {reviewStats.hasVerifiedReviews && (
               <>
                 <div className="bg-[#388e3c] text-white text-xs font-bold px-2 py-0.5 rounded-[3px] flex items-center gap-1">
-                  {reviewStats.rating} <Star size={10} fill="white" />
+                  {reviewStats.averageRating} <Star size={10} fill="white" />
                 </div>
                 <span className="text-slate-500 text-sm font-bold">
-                  {reviewStats.count} Verified Review
-                  {reviewStats.count === 1 ? "" : "s"}
+                  {reviewStats.reviewCount} Verified Review
+                  {reviewStats.reviewCount === 1 ? "" : "s"}
                 </span>
               </>
             )}
@@ -4222,7 +4275,7 @@ const ProductPage = ({
             <span className="text-3xl font-bold text-slate-900">
               ₹{product.price}
             </span>
-            {discountInfo.showDiscount && (
+            {discountInfo.isValidDiscount && (
               <>
                 <span className="text-base text-slate-400 line-through">
                   ₹{product.oldPrice}
@@ -4234,13 +4287,41 @@ const ProductPage = ({
             )}
           </div>
 
-          <div className="border rounded-[2px] p-4 mb-6 bg-slate-50">
-            <h4 className="font-bold text-slate-800 mb-2 text-sm">
-              Product Description
+          <div className="border rounded-[2px] p-4 mb-6 bg-slate-50 space-y-4">
+            <h4 className="font-bold text-slate-800 text-sm">
+              Product Highlights & Specifications
             </h4>
-            <p className="text-slate-600 text-sm leading-relaxed">
-              {product.description}
-            </p>
+            {(() => {
+              const { bullets, specs } = parseProductDescription(product.description);
+              return (
+                <div className="space-y-4">
+                  {bullets.length > 0 ? (
+                    <ul className="space-y-1.5 list-disc list-inside text-slate-700 text-sm">
+                      {bullets.map((b: string, idx: number) => (
+                        <li key={idx} className="leading-relaxed">{b}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-slate-600 text-sm leading-relaxed">{product.description}</p>
+                  )}
+                  <div className="border-t pt-3">
+                    <p className="text-xs font-bold uppercase text-slate-400 mb-2">Specifications</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {specs.map((spec: { label: string; value: string }, idx: number) => (
+                        <div key={idx} className="flex justify-between bg-white p-2 rounded border border-slate-100">
+                          <span className="font-bold text-slate-500">{spec.label}:</span>
+                          <span className="font-medium text-slate-800">{spec.value}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between bg-white p-2 rounded border border-slate-100">
+                        <span className="font-bold text-slate-500">Return Policy:</span>
+                        <span className="font-medium text-slate-800">{product.returnPolicy === "No Return" ? "No Return" : "7 Days Return"}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           <div className="grid grid-cols-2 gap-4 border-t pt-6">
@@ -4289,7 +4370,7 @@ const ProductPage = ({
             {reviewStats.hasVerifiedReviews ? (
               <div className="flex items-center gap-4 mb-6">
                 <div className="text-5xl font-bold text-slate-900">
-                  {reviewStats.rating}
+                  {reviewStats.averageRating}
                 </div>
                 <div>
                   <div className="flex text-orange-400">
@@ -4298,7 +4379,7 @@ const ProductPage = ({
                         key={s}
                         size={20}
                         fill={
-                          s <= Math.round(reviewStats.rating)
+                          s <= Math.round(reviewStats.averageRating)
                             ? "currentColor"
                             : "none"
                         }
@@ -4306,8 +4387,8 @@ const ProductPage = ({
                     ))}
                   </div>
                   <p className="text-slate-500 text-sm font-medium mt-1">
-                    {reviewStats.count} Verified Review
-                    {reviewStats.count === 1 ? "" : "s"}
+                    {reviewStats.reviewCount} Verified Review
+                    {reviewStats.reviewCount === 1 ? "" : "s"}
                   </p>
                 </div>
               </div>
@@ -4491,7 +4572,7 @@ const ProductDetailsModal = ({ product, close, addToCart, buyNow }: any) => {
 
         {/* Image Section */}
         <div className="w-full md:w-1/2 bg-white p-8 flex items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 relative">
-          {discountInfo.hasValidDiscount && (
+          {discountInfo.isValidDiscount && (
             <div className="absolute top-4 left-4">
               <span className="bg-[#26a541] text-white text-xs font-bold px-2 py-1 rounded-[2px] shadow-sm">
                 {discountInfo.discountPercent}% off
@@ -4557,7 +4638,7 @@ const ProductDetailsModal = ({ product, close, addToCart, buyNow }: any) => {
             <span className="text-3xl font-bold text-slate-900">
               ₹{product.price}
             </span>
-            {discountInfo.hasValidDiscount && (
+            {discountInfo.isValidDiscount && (
               <>
                 <span className="text-slate-400 text-sm line-through">
                   ₹{product.oldPrice}
@@ -5042,7 +5123,7 @@ const CartDrawer = ({
                   <span className="font-bold text-slate-900 text-base">
                     ₹{i.price}
                   </span>
-                  {itemDiscount.hasValidDiscount && (
+                  {itemDiscount.isValidDiscount && (
                     <>
                       <span className="text-xs text-slate-400 line-through">
                         ₹{i.oldPrice}

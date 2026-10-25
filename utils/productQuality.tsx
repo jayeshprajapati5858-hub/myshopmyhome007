@@ -132,6 +132,34 @@ export function getImageConsistencyWarning(product: Product): string | null {
   return null;
 }
 
+export function parseProductDescription(desc: string): { bullets: string[]; specs: { label: string; value: string }[] } {
+  if (!desc) return { bullets: [], specs: [] };
+  const sentences = desc
+    .split(/[\.\n]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 3);
+
+  const uniqueSentences: string[] = [];
+  const seen = new Set<string>();
+  for (const s of sentences) {
+    const lower = s.toLowerCase();
+    if (!seen.has(lower)) {
+      seen.add(lower);
+      uniqueSentences.push(s);
+    }
+  }
+
+  const bullets = uniqueSentences.slice(0, 5);
+  const specs = [
+    { label: "Platform", value: "MyshopMyhome.shop" },
+    { label: "Category", value: "Mobile Accessories & Gadgets" },
+    { label: "Quality Verification", value: "Verified Authentic" },
+    { label: "Delivery", value: "Fast Pan-India Shipping" },
+  ];
+
+  return { bullets, specs };
+}
+
 export interface ProductQualityWarning {
   type: "placeholder_title" | "broken_image" | "image_mismatch" | "invalid_price" | "unverified_reviews" | "draft";
   message: string;
