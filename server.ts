@@ -69,6 +69,54 @@ async function startServer() {
   app.use("/api", apiRouter);
   app.use("/api", uploadRouter);
 
+  // Dynamic sitemap route for development / server
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      let products = [...INITIAL_PRODUCTS];
+      const domain = "https://www.myshopmyhome.shop";
+      const staticPages = [
+        { url: "", priority: "1.0", changefreq: "daily" },
+        { url: "/buying-guides", priority: "0.8", changefreq: "weekly" },
+        { url: "/faq", priority: "0.8", changefreq: "weekly" },
+        { url: "/about", priority: "0.7", changefreq: "monthly" },
+        { url: "/contact", priority: "0.7", changefreq: "monthly" },
+        { url: "/shipping-delivery", priority: "0.6", changefreq: "monthly" },
+        { url: "/returns-refunds", priority: "0.6", changefreq: "monthly" },
+        { url: "/terms", priority: "0.5", changefreq: "monthly" },
+        { url: "/privacy-policy", priority: "0.5", changefreq: "monthly" },
+      ];
+
+      const xmlItems = [
+        ...staticPages.map(
+          (p) => `  <url>
+    <loc>${domain}${p.url}</loc>
+    <changefreq>${p.changefreq}</changefreq>
+    <priority>${p.priority}</priority>
+  </url>`
+        ),
+        ...products
+          .filter((p: any) => p.status !== "draft" && p.listingConfirmed !== false)
+          .map(
+            (p: any) => `  <url>
+    <loc>${domain}/product/${p.id}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>`
+          ),
+      ];
+
+      const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${xmlItems.join("\n")}
+</urlset>`;
+
+      res.setHeader("Content-Type", "application/xml; charset=utf-8");
+      res.send(sitemapXml);
+    } catch (e) {
+      res.status(500).send("Error generating sitemap");
+    }
+  });
+
   // SSR / Meta and JSON-LD injection for product pages for crawlers and direct visitors
   app.get("/product/:id", async (req, res) => {
     try {

@@ -6,10 +6,10 @@
   "routes": [
     {
       "src": "/sitemap.xml",
-      "dest": "/sitemap.xml",
+      "dest": "/api/sitemap",
       "headers": {
         "Content-Type": "application/xml; charset=utf-8",
-        "Cache-Control": "public, max-age=0, must-revalidate"
+        "Cache-Control": "public, max-age=3600, s-maxage=3600"
       }
     },
     {
