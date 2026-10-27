@@ -56,6 +56,7 @@ import {
   saveUserProfile,
   getUserProfile,
   getProductsFromFirebase,
+  getProductFromFirebase,
   saveProductToFirebase,
   deleteProductFromFirebase,
   deleteOrderFromFirebase,
@@ -4151,7 +4152,28 @@ const ProductPage = ({
 }: any) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const product = products.find((p: any) => p.id === id);
+  const existingProduct = products.find((p: any) => p.id === id);
+  const [fetchedProduct, setFetchedProduct] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(!existingProduct);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    if (!existingProduct && id) {
+      setIsLoading(true);
+      getProductFromFirebase(id)
+        .then((res) => {
+          if (res) {
+            setFetchedProduct(res);
+          }
+        })
+        .catch((err) => console.error("Error fetching product:", err))
+        .finally(() => setIsLoading(false));
+    } else {
+      setIsLoading(false);
+    }
+  }, [id, existingProduct]);
+
+  const product = existingProduct || fetchedProduct;
 
   const [reviewForm, setReviewForm] = useState({
     rating: 5,
@@ -4161,17 +4183,60 @@ const ProductPage = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  usePageMeta(
+    product ? `${product.name} — Buy Online | MyshopMyhome.shop` : "Product | MyshopMyhome.shop",
+    product?.description ? product.description.substring(0, 150) : "Shop verified mobile accessories and electronics at MyshopMyhome.shop."
+  );
+
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [id]);
+    if (product) {
+      const scriptId = "product-jsonld";
+      let script = document.getElementById(scriptId) as HTMLScriptElement;
+      if (!script) {
+        script = document.createElement("script");
+        script.id = scriptId;
+        script.type = "application/ld+json";
+        document.head.appendChild(script);
+      }
+      script.textContent = JSON.stringify({
+        "@context": "https://schema.org/",
+        "@type": "Product",
+        "name": product.name,
+        "image": product.images || [product.image],
+        "description": product.description,
+        "sku": product.id,
+        "brand": {
+          "@type": "Brand",
+          "name": product.brand || "MyshopMyhome"
+        },
+        "offers": {
+          "@type": "Offer",
+          "url": window.location.href,
+          "priceCurrency": "INR",
+          "price": product.price,
+          "availability": "https://schema.org/InStock"
+        }
+      });
+    }
+  }, [product]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50">
+        <div className="w-16 h-16 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin mb-4" />
+        <p className="font-bold text-slate-700">Loading product details...</p>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6">
-        <h2 className="text-2xl font-bold mb-4">Product not found</h2>
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50">
+        <h2 className="text-2xl font-bold mb-2 text-slate-900">Product not found</h2>
+        <p className="text-slate-500 mb-6 text-sm">The product you are looking for may have been removed or is unavailable.</p>
         <button
           onClick={() => navigate("/")}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg"
+          className="px-6 py-3 bg-orange-600 text-white rounded-xl font-bold shadow-md hover:bg-orange-700 transition-all"
         >
           Go Home
         </button>

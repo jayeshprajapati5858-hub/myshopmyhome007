@@ -197,6 +197,29 @@ export const getProductsFromFirebase = async (): Promise<any[]> => {
   }
 };
 
+export const getProductFromFirebase = async (productId: string): Promise<any | null> => {
+  try {
+    const docRef = doc(db, "products", productId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data();
+    }
+    return null;
+  } catch (e: any) {
+    console.warn("Error getting product by id from server, trying cache:", e?.message);
+    try {
+      const docRef = doc(db, "products", productId);
+      const docSnap = await getDocFromCache(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data();
+      }
+    } catch (cacheError) {
+      console.error("Error getting product from cache:", cacheError);
+    }
+    return null;
+  }
+};
+
 export const deleteProductFromFirebase = async (productId: string) => {
   try {
     await deleteDoc(doc(db, "products", productId));
