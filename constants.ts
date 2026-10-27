@@ -60,6 +60,27 @@ export const INITIAL_PRODUCTS: Product[] = [
     relatedIds: ['1', '2'],
     status: 'published',
     returnPolicy: '7 Days'
+  },
+  {
+    id: '1772984716711',
+    name: 'પ્રીમિયમ 20W ફાસ્ટ ચાર્જર અને ટાઈપ-સી કેબલ',
+    description: 'હાઇ સ્પીડ ફાસ્ટ ચાર્જિંગ, ડ્યુઅલ પોર્ટ, ઓવરહિટીંગ પ્રિવેન્શન અને સુરક્ષિત ચાર્જિંગ.',
+    price: 999,
+    oldPrice: 1999,
+    category: 'Charger',
+    image: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?q=80&w=800&auto=format&fit=crop',
+    rating: 4.8,
+    reviews: 12,
+    reviewsList: [],
+    stock: 25,
+    relatedIds: ['1', '2'],
+    status: 'published',
+    returnPolicy: '7 Days',
+    brand: 'MyshopMyhome',
+    model: 'FastCharge Pro 20W',
+    capacity: 'N/A',
+    inputSpec: '100-240V 50/60Hz',
+    outputSpec: '5V/3A, 9V/2.22A, 12V/1.67A'
   }
 ];
 

@@ -6,6 +6,8 @@ import Razorpay from "razorpay";
 import cors from "cors";
 import dotenv from "dotenv";
 import uploadRouter from "./server/routes/upload.js";
+import { INITIAL_PRODUCTS } from "./constants.js";
+import fs from "fs";
 
 dotenv.config();
 
@@ -66,6 +68,69 @@ async function startServer() {
 
   app.use("/api", apiRouter);
   app.use("/api", uploadRouter);
+
+  // SSR / Meta and JSON-LD injection for product pages for crawlers and direct visitors
+  app.get("/product/:id", async (req, res) => {
+    try {
+      const productId = req.params.id;
+      const foundProduct = INITIAL_PRODUCTS.find((p) => p.id === productId);
+
+      let htmlContent = "";
+      const distPath = path.resolve(__dirname, "dist");
+      const indexPath = path.resolve(distPath, "index.html");
+      const rootIndexPath = path.resolve(__dirname, "index.html");
+
+      if (fs.existsSync(indexPath)) {
+        htmlContent = fs.readFileSync(indexPath, "utf8");
+      } else if (fs.existsSync(rootIndexPath)) {
+        htmlContent = fs.readFileSync(rootIndexPath, "utf8");
+      } else {
+        htmlContent = "<!DOCTYPE html><html><head><title>MyshopMyhome</title></head><body><div id='root'></div></body></html>";
+      }
+
+      if (foundProduct) {
+        const productTitle = `${foundProduct.name} — Buy Online | MyshopMyhome.shop`;
+        const productDesc = foundProduct.description || "Shop verified mobile accessories and electronics at MyshopMyhome.shop.";
+        const productImage = foundProduct.image || "";
+        const productUrl = `https://www.myshopmyhome.shop/product/${foundProduct.id}`;
+
+        htmlContent = htmlContent
+          .replace(/<title>.*?<\/title>/, `<title>${productTitle}</title>`)
+          .replace(/<meta name="description" content=".*?"/, `<meta name="description" content="${productDesc}" />`)
+          .replace(/<\/head>/, `
+            <meta property="og:title" content="${productTitle}" />
+            <meta property="og:description" content="${productDesc}" />
+            <meta property="og:image" content="${productImage}" />
+            <meta property="og:url" content="${productUrl}" />
+            <meta property="og:type" content="product" />
+            <script type="application/ld+json">
+            {
+              "@context": "https://schema.org/",
+              "@type": "Product",
+              "name": "${foundProduct.name}",
+              "image": ["${productImage}"],
+              "description": "${productDesc}",
+              "sku": "${foundProduct.id}",
+              "brand": { "@type": "Brand", "name": "${foundProduct.brand || 'MyshopMyhome'}" },
+              "offers": {
+                "@type": "Offer",
+                "url": "${productUrl}",
+                "priceCurrency": "INR",
+                "price": ${foundProduct.price},
+                "availability": "https://schema.org/InStock"
+              }
+            }
+            </script>
+          </head>`);
+      }
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(htmlContent);
+    } catch (e) {
+      console.error("Error serving server-rendered product page:", e);
+      res.sendFile(path.resolve(__dirname, "index.html"));
+    }
+  });
 
   // Static files / Vite
   const publicPath = path.resolve(__dirname, "public");
